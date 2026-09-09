@@ -13,7 +13,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
       -webkit-tap-highlight-color: transparent;
@@ -30,103 +30,186 @@
       top: 0;
       width: auto;
     }
-    @media print {
-      .no-print { display: none !important; }
-      body { background-color: white !important; padding: 0 !important; }
-      .print-card { border: 1px solid #e5e7eb !important; box-shadow: none !important; page-break-inside: avoid; }
+    
+    /* Layout dédié à l'export PDF sur 1 page A4 */
+    #pdfRenderArea {
+      display: none;
+    }
+    .pdf-mode #pdfRenderArea {
+      display: block !important;
+      width: 794px; /* A4 width @ 96 DPI */
+      background: white;
+      color: #1e293b;
+      padding: 24px;
+      font-size: 11px;
+      line-height: 1.3;
     }
   </style>
 </head>
 <body class="text-slate-900 min-h-screen pb-16 pt-4 px-3 sm:px-6 max-w-xl mx-auto">
 
-  <!-- Header -->
-  <header class="flex justify-between items-center mb-4 no-print pt-2">
-    <div>
-      <h1 class="text-xl font-bold tracking-tight text-slate-900">Suivi d'Heures & Paie</h1>
-      <p class="text-xs text-slate-500 font-medium">GSF ARIANE • ATQS 3A (14,95 €/h)</p>
-    </div>
-    <div class="flex gap-2">
-      <button onclick="exportPDF()" class="bg-blue-600 active:bg-blue-700 text-white font-semibold text-xs py-2 px-3 rounded-xl shadow-sm flex items-center gap-1">
-        📄 PDF
-      </button>
-      <button onclick="toggleSettingsModal()" class="bg-slate-200 active:bg-slate-300 text-slate-700 font-semibold text-xs py-2 px-3 rounded-xl shadow-sm">
-        ⚙️
-      </button>
-    </div>
-  </header>
-
-  <!-- Navigation Mois -->
-  <div class="bg-white rounded-2xl p-3 mb-4 shadow-sm border border-slate-200/80 flex justify-between items-center no-print">
-    <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-100 active:bg-slate-200 rounded-xl font-bold text-slate-700">
-      ❮
-    </button>
-    <div class="text-center">
-      <span id="currentMonthLabel" class="text-base font-bold text-slate-800"></span>
-    </div>
-    <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center bg-slate-100 active:bg-slate-200 rounded-xl font-bold text-slate-700">
-      ❯
-    </button>
-  </div>
-
-  <!-- Estimation de Paie & Bilan -->
-  <div id="summarySection" class="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-200/80 print-card">
-    <div class="flex justify-between items-center mb-3">
-      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-        💰 Estimation Salaire <span id="pdfMonthTitle" class="hidden print:inline text-slate-800"></span>
-      </h2>
-      <span class="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">Contractuel 151,67h</span>
-    </div>
-
-    <!-- Salaire Net & Brut -->
-    <div class="bg-emerald-500 text-white p-4 rounded-xl mb-3 shadow-sm flex justify-between items-center">
+  <!-- Application Normal View -->
+  <div id="appContainer">
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-4 pt-2">
       <div>
-        <span class="text-xs opacity-90 block font-medium">Net Estimmé à Payer (~78%)</span>
-        <span id="salaryNet" class="text-2xl font-black tracking-tight">0,00 €</span>
+        <h1 class="text-xl font-bold tracking-tight text-slate-900">Suivi d'Heures & Paie</h1>
+        <p class="text-xs text-slate-500 font-medium">GSF ARIANE • ATQS 3A (14,95 €/h)</p>
       </div>
-      <div class="text-right">
-        <span class="text-xs opacity-90 block">Brut Total</span>
-        <span id="salaryGross" class="text-base font-bold">0,00 €</span>
+      <div class="flex gap-2">
+        <button onclick="exportPDF()" class="bg-blue-600 active:bg-blue-700 text-white font-semibold text-xs py-2 px-3 rounded-xl shadow-sm flex items-center gap-1">
+          📄 PDF (1 Page)
+        </button>
+        <button onclick="toggleSettingsModal()" class="bg-slate-200 active:bg-slate-300 text-slate-700 font-semibold text-xs py-2 px-3 rounded-xl shadow-sm">
+          ⚙️
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Mois -->
+    <div class="bg-white rounded-2xl p-3 mb-4 shadow-sm border border-slate-200/80 flex justify-between items-center">
+      <button onclick="changeMonth(-1)" class="w-10 h-10 flex items-center justify-center bg-slate-100 active:bg-slate-200 rounded-xl font-bold text-slate-700">
+        ❮
+      </button>
+      <div class="text-center">
+        <span id="currentMonthLabel" class="text-base font-bold text-slate-800"></span>
+      </div>
+      <button onclick="changeMonth(1)" class="w-10 h-10 flex items-center justify-center bg-slate-100 active:bg-slate-200 rounded-xl font-bold text-slate-700">
+        ❯
+      </button>
+    </div>
+
+    <!-- Estimation de Paie & Bilan -->
+    <div class="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-200/80">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          💰 Estimation Salaire Mensuel
+        </h2>
+        <span class="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">Base 151,67h</span>
+      </div>
+
+      <!-- Salaire Net & Brut -->
+      <div class="bg-emerald-600 text-white p-4 rounded-xl mb-3 shadow-sm flex justify-between items-center">
+        <div>
+          <span class="text-xs opacity-90 block font-medium">Net Estimé (~78%)</span>
+          <span id="salaryNet" class="text-2xl font-black tracking-tight">0,00 €</span>
+        </div>
+        <div class="text-right">
+          <span class="text-xs opacity-90 block">Brut Total Estimé</span>
+          <span id="salaryGross" class="text-base font-bold">0,00 €</span>
+        </div>
+      </div>
+
+      <!-- Détail des heures -->
+      <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+        <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+          <span class="text-slate-500 block">Total Travaillé</span>
+          <span id="totalWorked" class="text-sm font-bold text-slate-800">0h00</span>
+        </div>
+
+        <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+          <span class="text-slate-500 block">Solde / Heures Sup</span>
+          <span id="totalBalance" class="text-sm font-bold text-slate-800">0h00</span>
+        </div>
+
+        <div class="bg-indigo-50/80 p-2.5 rounded-xl border border-indigo-100">
+          <span class="text-indigo-600 font-semibold block">🌙 Nuit (+20%)</span>
+          <span id="totalNight" class="text-sm font-bold text-indigo-700">0h00</span>
+          <span id="totalNightBonus" class="text-[10px] text-indigo-500 block">+0,00 €</span>
+        </div>
+
+        <div class="bg-amber-50/80 p-2.5 rounded-xl border border-amber-100">
+          <span class="text-amber-800 font-semibold block">☀️ Dim.(+20%) / Férié (+50%)</span>
+          <span id="totalSundayHoliday" class="text-sm font-bold text-amber-900">0h00</span>
+          <span id="totalSundayHolidayBonus" class="text-[10px] text-amber-700 block">+0,00 €</span>
+        </div>
+      </div>
+
+      <!-- Compteur Annuel CP & Maladie -->
+      <div class="pt-3 border-t border-slate-100 grid grid-cols-3 gap-2 text-center text-xs">
+        <div class="bg-emerald-50/60 p-2 rounded-xl">
+          <span class="text-[10px] text-emerald-700 font-medium block">CP Pris (Mois)</span>
+          <strong id="countCP" class="text-sm text-emerald-800">0 j</strong>
+        </div>
+        <div class="bg-emerald-100/80 p-2 rounded-xl border border-emerald-200">
+          <span class="text-[10px] text-emerald-800 font-bold block"> Solde CP Annuel</span>
+          <strong id="soldeCPAnnuel" class="text-sm text-emerald-900">25,0 j</strong>
+        </div>
+        <div class="bg-rose-50/60 p-2 rounded-xl">
+          <span class="text-[10px] text-rose-700 font-medium block">Arrêt Maladie</span>
+          <strong id="countAM" class="text-sm text-rose-800">0 j</strong>
+        </div>
       </div>
     </div>
 
-    <!-- Détail des heures -->
-    <div class="grid grid-cols-2 gap-2 text-xs">
-      <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-        <span class="text-slate-500 block">Total Travaillé</span>
-        <span id="totalWorked" class="text-sm font-bold text-slate-800">0h00</span>
-      </div>
-
-      <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-        <span class="text-slate-500 block">Solde / Heures Sup</span>
-        <span id="totalBalance" class="text-sm font-bold text-slate-800">0h00</span>
-      </div>
-
-      <div class="bg-indigo-50/80 p-2.5 rounded-xl border border-indigo-100">
-        <span class="text-indigo-600 font-semibold block">🌙 Nuit (+20%)</span>
-        <span id="totalNight" class="text-sm font-bold text-indigo-700">0h00</span>
-        <span id="totalNightBonus" class="text-[10px] text-indigo-500 block">+0,00 €</span>
-      </div>
-
-      <div class="bg-amber-50/80 p-2.5 rounded-xl border border-amber-100">
-        <span class="text-amber-700 font-semibold block">☀️ Dim. (+20%) / Férié (+50%)</span>
-        <span id="totalSundayHoliday" class="text-sm font-bold text-amber-800">0h00</span>
-        <span id="totalSundayHolidayBonus" class="text-[10px] text-amber-600 block">+0,00 €</span>
-      </div>
+    <!-- Bilan Hebdomadaire (35h) -->
+    <div class="bg-white rounded-2xl p-3.5 mb-4 shadow-sm border border-slate-200/80">
+      <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex justify-between items-center">
+        <span>📊 Suivi Hebdomadaire (Base 35h / sem)</span>
+      </h3>
+      <div id="weeklyBreakdown" class="space-y-1.5 text-xs"></div>
     </div>
 
-    <!-- Détail des absences -->
-    <div class="mt-3 pt-2 border-t border-slate-100 flex justify-between text-[11px] text-slate-500">
-      <span>🏖️ CP : <strong id="countCP" class="text-slate-700">0 j</strong></span>
-      <span>🏥 Arrêt Maladie : <strong id="countAM" class="text-slate-700">0 j</strong></span>
-      <span>⚙️ Taux : <strong>14,95 €/h</strong></span>
-    </div>
+    <!-- Liste des Jours -->
+    <div id="daysList" class="space-y-3"></div>
   </div>
 
-  <!-- Liste des Jours -->
-  <div id="daysList" class="space-y-3"></div>
+  <!-- ZONE DE RENDU PDF DÉDIÉE (Invisible à l'écran, générée pour l'export A4) -->
+  <div id="pdfRenderArea">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #0284c7; padding-bottom:10px; margin-bottom:12px;">
+      <div>
+        <h1 style="font-size:18px; font-weight:800; color:#0f172a; margin:0;">RELEVÉ HEBDOMADAIRE & MENSUEL D'HEURES</h1>
+        <p style="font-size:11px; color:#475569; margin:2px 0 0 0;"><strong>Société :</strong> GSF ARIANE • <strong>Qualification :</strong> ATQS 3A (14,95 €/h)</p>
+      </div>
+      <div style="text-align:right;">
+        <span id="pdfMonthHeader" style="font-size:14px; font-weight:800; color:#0284c7;"></span>
+        <p style="font-size:10px; color:#64748b; margin:2px 0 0 0;">Base contrat : 151,67 h / mois</p>
+      </div>
+    </div>
+
+    <!-- Table Récapitulative Salaire PDF -->
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-bottom:12px; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0;">
+      <div>
+        <span style="font-size:9px; color:#64748b; display:block;">TOTAL TRAVAILLÉ</span>
+        <strong id="pdfTotalWorked" style="font-size:13px; color:#0f172a;">0h00</strong>
+      </div>
+      <div>
+        <span style="font-size:9px; color:#64748b; display:block;">HEURES DE NUIT (+20%)</span>
+        <strong id="pdfTotalNight" style="font-size:13px; color:#4338ca;">0h00</strong>
+      </div>
+      <div>
+        <span style="font-size:9px; color:#64748b; display:block;">DIMANCHE / FÉRIÉ</span>
+        <strong id="pdfTotalSundayHoliday" style="font-size:13px; color:#b45309;">0h00</strong>
+      </div>
+      <div>
+        <span style="font-size:9px; color:#15803d; display:block;">NET ESTIMÉ (~78%)</span>
+        <strong id="pdfSalaryNet" style="font-size:14px; color:#15803d;">0,00 €</strong>
+      </div>
+    </div>
+
+    <!-- Tableau Synthétique 31 Jours PDF -->
+    <table style="width:100%; border-collapse:collapse; font-size:9.5px; margin-bottom:12px;">
+      <thead>
+        <tr style="background:#0284c7; color:white; font-size:9px; text-transform:uppercase;">
+          <th style="padding:4px 6px; text-align:left; border:1px solid #0284c7;">Jour</th>
+          <th style="padding:4px 6px; text-align:center; border:1px solid #0284c7;">Créneau 1</th>
+          <th style="padding:4px 6px; text-align:center; border:1px solid #0284c7;">Créneau 2</th>
+          <th style="padding:4px 6px; text-align:center; border:1px solid #0284c7;">Total</th>
+          <th style="padding:4px 6px; text-align:center; border:1px solid #0284c7;">Nuit</th>
+          <th style="padding:4px 6px; text-align:left; border:1px solid #0284c7;">Lieu / Remarque</th>
+        </tr>
+      </thead>
+      <tbody id="pdfTableBody"></tbody>
+    </table>
+
+    <div style="display:flex; justify-content:space-between; font-size:9px; color:#64748b; border-top:1px dashed #cbd5e1; padding-top:6px;">
+      <span>Document généré le <span id="pdfPrintDate"></span></span>
+      <span>Signature de l'Agent : ______________________</span>
+    </div>
+  </div>
 
   <!-- Modal Paramètres & Backup -->
-  <div id="settingsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
+  <div id="settingsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white w-full max-w-sm rounded-2xl p-5 shadow-xl space-y-4">
       <h3 class="text-base font-bold text-slate-800 border-b pb-2">Paramètres & Sauvegarde</h3>
       
@@ -135,19 +218,30 @@
         <input type="number" id="hourlyRateInput" value="14.95" step="0.01" class="w-full bg-slate-100 p-2.5 rounded-xl font-bold text-slate-800 border focus:outline-none">
       </div>
 
+      <div>
+        <label class="text-xs font-semibold text-slate-500 block mb-1">Solde CP Acquis de Départ (Jours)</label>
+        <input type="number" id="cpBaseInput" value="25.0" step="0.5" onchange="saveCPBase(this.value)" class="w-full bg-slate-100 p-2.5 rounded-xl font-bold text-slate-800 border focus:outline-none">
+      </div>
+
       <div class="pt-2 border-t space-y-2">
         <button onclick="exportDataJSON()" class="w-full bg-slate-100 active:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl text-left px-3 flex justify-between items-center">
-          <span>📥 Exporter une sauvegarde (JSON)</span>
+          <span>📥 Exporter Sauvegarde (JSON)</span>
           <span>💾</span>
         </button>
         <label class="w-full bg-slate-100 active:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl px-3 flex justify-between items-center cursor-pointer">
-          <span>📤 Importer une sauvegarde</span>
+          <span>📤 Importer une Sauvegarde</span>
           <input type="file" accept=".json" onchange="importDataJSON(event)" class="hidden">
           <span>📂</span>
         </label>
       </div>
 
-      <div class="pt-2 flex justify-end gap-2">
+      <!-- Backup Texte en cas de blocage safari -->
+      <div id="jsonFallbackArea" class="hidden space-y-2 pt-2 border-t">
+        <p class="text-[10px] text-slate-500">Copiez ce texte pour sauvegarder vos données :</p>
+        <textarea id="jsonRawText" class="w-full text-[9px] p-2 bg-slate-100 rounded-lg h-20" readonly></textarea>
+      </div>
+
+      <div class="pt-2 flex justify-end">
         <button onclick="toggleSettingsModal()" class="bg-blue-600 text-white font-semibold text-xs px-4 py-2 rounded-xl">
           Fermer
         </button>
@@ -161,23 +255,15 @@
     const DAILY_TARGET_MINS = 7 * 60; // 7h par jour ouvré
 
     let currentDate = new Date();
-    // Storage schema: { 'YYYY-MM-DD': { status: 'WORK'|'CP'|'AM'|'OFF', start1: '', end1: '', start2: '', end2: '', comment: '' } }
     let logs = JSON.parse(localStorage.getItem('work_logs_v3') || '{}');
+    let cpBaseAcquired = parseFloat(localStorage.getItem('cp_base_acquired') || '25.0');
 
-    // Migration V2 -> V3 if needed
-    const oldV2 = JSON.parse(localStorage.getItem('work_logs_v2') || '{}');
-    if (Object.keys(oldV2).length > 0 && Object.keys(logs).length === 0) {
-      for (const k in oldV2) {
-        logs[k] = {
-          status: 'WORK',
-          start1: oldV2[k].start || '',
-          end1: oldV2[k].end || '',
-          start2: '',
-          end2: '',
-          comment: oldV2[k].comment || ''
-        };
-      }
-      localStorage.setItem('work_logs_v3', JSON.stringify(logs));
+    document.getElementById('cpBaseInput').value = cpBaseAcquired;
+
+    function saveCPBase(val) {
+      cpBaseAcquired = parseFloat(val) || 25.0;
+      localStorage.setItem('cp_base_acquired', cpBaseAcquired.toString());
+      updateCalculations();
     }
 
     function saveLogs() {
@@ -214,6 +300,55 @@
     }
 
     /**
+     * Calcul des jours fériés français (fixes et mobiles)
+     */
+    function getFrenchHolidays(year) {
+      const holidays = {};
+      const add = (m, d, name) => {
+        const k = `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        holidays[k] = name;
+      };
+
+      add(1, 1, "Jour de l'An");
+      add(5, 1, "1er Mai");
+      add(5, 8, "8 Mai 1945");
+      add(7, 14, "14 Juillet");
+      add(8, 15, "Assomption");
+      add(11, 1, "Toussaint");
+      add(11, 11, "11 Novembre");
+      add(12, 25, "Noël");
+
+      // Calcul de Pâques (Algorithme de Butcher)
+      const a = year % 19;
+      const b = Math.floor(year / 100);
+      const c = year % 100;
+      const d = Math.floor(b / 4);
+      const e = b % 4;
+      const f = Math.floor((b + 8) / 25);
+      const g = Math.floor((b - f + 1) / 3);
+      const h = (19 * a + b - d - g + 15) % 30;
+      const i = Math.floor(c / 4);
+      const k = c % 4;
+      const l = (32 + 2 * e + 2 * i - h - k) % 7;
+      const m = Math.floor((a + 11 * h + 22 * l) / 451);
+      const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+      const day = ((h + l - 7 * m + 114) % 31) + 1;
+
+      const easter = new Date(year, month, day);
+      
+      const easterMonday = new Date(easter); easterMonday.setDate(easter.getDate() + 1);
+      add(easterMonday.getMonth() + 1, easterMonday.getDate(), "Lundi de Pâques");
+
+      const ascension = new Date(easter); ascension.setDate(easter.getDate() + 39);
+      add(ascension.getMonth() + 1, ascension.getDate(), "Ascension");
+
+      const pentecost = new Date(easter); pentecost.setDate(easter.getDate() + 50);
+      add(pentecost.getMonth() + 1, pentecost.getDate(), "Lundi de Pentecôte");
+
+      return holidays;
+    }
+
+    /**
      * Calcule la durée totale et la part d'heures de nuit (21h00 - 06h00)
      */
     function calculateShift(startStr, endStr) {
@@ -229,9 +364,9 @@
       const totalMins = end - start;
 
       const nightWindows = [
-        [0, 360],         // 00:00 - 06:00 jour 1
-        [1260, 1800],     // 21:00 jour 1 - 06:00 jour 2
-        [2700, 3240]      // 21:00 jour 2 - 06:00 jour 3
+        [0, 360],         // 00:00 - 06:00
+        [1260, 1800],     // 21:00 - 30:00 (06:00 J+1)
+        [2700, 3240]      // 21:00 J+1 - 06:00 J+2
       ];
 
       let nightMins = 0;
@@ -255,7 +390,7 @@
       if (!logs[dateKey]) logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '' };
       logs[dateKey].status = status;
       saveLogs();
-      render(); // Re-render car le statut change la structure
+      render();
     }
 
     function toggleSecondShift(dateKey) {
@@ -275,11 +410,11 @@
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
       const daysCount = getDaysInMonth(year, month);
+      const holidays = getFrenchHolidays(year);
       
       const monthName = currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
       const formattedMonthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
       document.getElementById('currentMonthLabel').innerText = formattedMonthLabel;
-      document.getElementById('pdfMonthTitle').innerText = `- ${formattedMonthLabel}`;
 
       const daysList = document.getElementById('daysList');
       daysList.innerHTML = '';
@@ -290,37 +425,40 @@
         const isSunday = (dayOfWeek === 0);
         const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
         const dateKey = formatDateKey(year, month, day);
+        const holidayName = holidays[dateKey];
         const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '' };
 
         const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
 
         const dayCard = document.createElement('div');
         dayCard.id = `card-${dateKey}`;
-        dayCard.className = `bg-white rounded-2xl p-3 shadow-sm border border-slate-200/80 print-card ${isWeekend ? 'bg-slate-50/60' : ''}`;
+        dayCard.className = `bg-white rounded-2xl p-3 shadow-sm border border-slate-200/80 ${isWeekend || holidayName ? 'bg-slate-50/70' : ''}`;
 
         // Header du Jour
         let statusBadges = '';
-        if (log.status === 'CP') {
-          statusBadges = `<span class="bg-emerald-100 text-emerald-800 text-[11px] font-semibold px-2 py-0.5 rounded-full">🏖️ Congé Payé (7h)</span>`;
+        if (holidayName) {
+          statusBadges = `<span class="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full">🎉 ${holidayName} (+50%)</span>`;
+        } else if (log.status === 'CP') {
+          statusBadges = `<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">🏖️ CP (7h)</span>`;
         } else if (log.status === 'AM') {
-          statusBadges = `<span class="bg-rose-100 text-rose-800 text-[11px] font-semibold px-2 py-0.5 rounded-full">🏥 Arrêt Maladie</span>`;
+          statusBadges = `<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full">🏥 Arrêt Maladie</span>`;
         } else if (log.status === 'OFF') {
-          statusBadges = `<span class="bg-slate-200 text-slate-700 text-[11px] font-semibold px-2 py-0.5 rounded-full">😴 Repos</span>`;
+          statusBadges = `<span class="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full">😴 Repos</span>`;
         } else {
           statusBadges = `<span id="badge-hours-${dateKey}" class="text-[11px] font-semibold"></span>`;
         }
 
         dayCard.innerHTML = `
           <div class="flex justify-between items-center mb-2">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5">
               <span class="font-bold text-sm text-slate-800 uppercase tracking-wide">${dayName}</span>
-              ${isSunday ? '<span class="text-[10px] bg-amber-100 text-amber-800 font-semibold px-1.5 py-0.5 rounded">Dimanche (+20%)</span>' : ''}
+              ${isSunday && !holidayName ? '<span class="text-[9px] bg-amber-100 text-amber-800 font-semibold px-1.5 py-0.5 rounded">Dim. (+20%)</span>' : ''}
             </div>
             <div>${statusBadges}</div>
           </div>
 
           <!-- Selecteur de Statut -->
-          <div class="flex gap-1 mb-2 no-print">
+          <div class="flex gap-1 mb-2">
             <button onclick="setDayStatus('${dateKey}', 'WORK')" class="flex-1 py-1 text-[11px] font-semibold rounded-lg ${log.status === 'WORK' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}">Travail</button>
             <button onclick="setDayStatus('${dateKey}', 'CP')" class="flex-1 py-1 text-[11px] font-semibold rounded-lg ${log.status === 'CP' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}">CP</button>
             <button onclick="setDayStatus('${dateKey}', 'AM')" class="flex-1 py-1 text-[11px] font-semibold rounded-lg ${log.status === 'AM' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600'}">Maladie</button>
@@ -345,7 +483,7 @@
               </div>
             </div>
 
-            <!-- Créneau 2 (Option Coupé) -->
+            <!-- Créneau 2 (Coupé) -->
             ${log.hasSecondShift ? `
               <div class="grid grid-cols-2 gap-2 mb-2 pt-1 border-t border-dashed">
                 <div class="bg-slate-50 rounded-xl p-2 border border-slate-200">
@@ -364,7 +502,7 @@
               </div>
             ` : ''}
 
-            <div class="flex justify-between items-center mb-2 no-print">
+            <div class="flex justify-between items-center mb-2">
               <button onclick="toggleSecondShift('${dateKey}')" class="text-[11px] text-blue-600 font-semibold hover:underline">
                 ${log.hasSecondShift ? '❌ Supprimer 2ème créneau' : '+ Ajouter horaire coupé (2ème créneau)'}
               </button>
@@ -386,28 +524,36 @@
     }
 
     /**
-     * Recalcule l'ensemble des totaux et du salaire prévisionnel sans détruire le DOM de la liste
+     * Recalcule l'ensemble des totaux, du suivi hebdomadaire et de la paie
      */
     function updateCalculations() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
       const daysCount = getDaysInMonth(year, month);
+      const holidays = getFrenchHolidays(year);
 
       let grandTotalMins = 0;
       let grandTotalNightMins = 0;
       let grandTotalExpectedMins = 0;
       let grandSundayMins = 0;
+      let grandHolidayMins = 0;
       let countCP = 0;
       let countAM = 0;
 
       const hourlyRate = parseFloat(document.getElementById('hourlyRateInput')?.value || BASE_HOURLY_RATE);
 
+      // Structure pour le bilan hebdomadaire (Lundi à Dimanche)
+      const weeklyTotals = [];
+      let currentWeekMins = 0;
+      let currentWeekNumber = 1;
+
       for (let day = 1; day <= daysCount; day++) {
         const dateObj = new Date(year, month, day);
-        const dayOfWeek = dateObj.getDay();
+        const dayOfWeek = dateObj.getDay(); // 0 = Dimanche, 1 = Lundi
         const isSunday = (dayOfWeek === 0);
         const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
         const dateKey = formatDateKey(year, month, day);
+        const holidayName = holidays[dateKey];
         const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '' };
 
         let dayTotalMins = 0;
@@ -425,16 +571,26 @@
           dayTotalMins = shift1.totalMins + shift2.totalMins;
           dayNightMins = shift1.nightMins + shift2.nightMins;
 
-          if (isSunday) {
+          if (holidayName) {
+            grandHolidayMins += dayTotalMins;
+          } else if (isSunday) {
             grandSundayMins += dayTotalMins;
           }
         }
 
         grandTotalMins += dayTotalMins;
         grandTotalNightMins += dayNightMins;
+        currentWeekMins += dayTotalMins;
 
         if (!isWeekend && log.status !== 'AM') {
           grandTotalExpectedMins += DAILY_TARGET_MINS;
+        }
+
+        // Fin de semaine (Dimanche ou dernier jour du mois)
+        if (isSunday || day === daysCount) {
+          weeklyTotals.push({ weekNum: currentWeekNumber, totalMins: currentWeekMins });
+          currentWeekNumber++;
+          currentWeekMins = 0;
         }
 
         // Mettre à jour le badge du jour
@@ -449,10 +605,35 @@
         }
       }
 
-      // Calculs Financiers (Base GSF 151,67h = 2267,47 €)
+      // Affichage Bilan Hebdomadaire
+      const weeklyBreakdownEl = document.getElementById('weeklyBreakdown');
+      weeklyBreakdownEl.innerHTML = '';
+      weeklyTotals.forEach(w => {
+        const diff35h = w.totalMins - (35 * 60);
+        let statusBadge = '';
+        if (diff35h > 0) {
+          statusBadge = `<span class="text-emerald-600 font-bold">+${formatMinutesToHours(diff35h)} (>35h)</span>`;
+        } else if (diff35h < 0) {
+          statusBadge = `<span class="text-slate-400">${formatMinutesToHours(diff35h)}</span>`;
+        } else {
+          statusBadge = `<span class="text-blue-600 font-bold">35h00 pile</span>`;
+        }
+
+        weeklyBreakdownEl.innerHTML += `
+          <div class="flex justify-between items-center py-1 border-b border-slate-100 last:border-0">
+            <span class="font-medium text-slate-600">Semaine ${w.weekNum}</span>
+            <div class="flex gap-2 text-xs">
+              <strong class="text-slate-800">${formatMinutesToHours(w.totalMins)}</strong>
+              ${statusBadge}
+            </div>
+          </div>
+        `;
+      });
+
+      // Calculs Financiers GSF
       const baseMonthlyGross = MONTHLY_BASE_HOURS * hourlyRate; // 2 267,47 €
       
-      // Majoration Heures de Nuit (+20% du taux horaire = 2,99 €/h)
+      // Majoration Nuit (+20%)
       const nightBonusRate = hourlyRate * 0.20;
       const totalNightBonus = (grandTotalNightMins / 60) * nightBonusRate;
 
@@ -460,40 +641,50 @@
       const sundayBonusRate = hourlyRate * 0.20;
       const totalSundayBonus = (grandSundayMins / 60) * sundayBonusRate;
 
-      // Solde Heures Supplémentaires (+25%)
+      // Majoration Férié (+50%)
+      const holidayBonusRate = hourlyRate * 0.50;
+      const totalHolidayBonus = (grandHolidayMins / 60) * holidayBonusRate;
+
+      // Solde Heures Sup (+25%)
       const netBalanceMins = grandTotalMins - grandTotalExpectedMins;
       let overtimeBonus = 0;
       if (netBalanceMins > 0) {
-        const overtimeHours = netBalanceMins / 60;
-        overtimeBonus = overtimeHours * (hourlyRate * 1.25); // Heures sup payées à +25%
+        overtimeBonus = (netBalanceMins / 60) * (hourlyRate * 1.25);
       }
 
-      const totalGross = baseMonthlyGross + totalNightBonus + totalSundayBonus + overtimeBonus;
-      const totalNetEstimated = totalGross * 0.78; // Estimation Net (~22% cotisations)
+      const totalSundayHolidayBonus = totalSundayBonus + totalHolidayBonus;
+      const totalSundayHolidayMins = grandSundayMins + grandHolidayMins;
 
-      // Mise à jour de l'affichage du résumé
+      const totalGross = baseMonthlyGross + totalNightBonus + totalSundayHolidayBonus + overtimeBonus;
+      const totalNetEstimated = totalGross * 0.78;
+
+      // Solde CP Annuel
+      const soldeRestantCP = cpBaseAcquired - countCP;
+
+      // Mise à jour de l'affichage mobile
       document.getElementById('totalWorked').innerText = formatMinutesToHours(grandTotalMins);
       document.getElementById('totalNight').innerText = formatMinutesToHours(grandTotalNightMins);
       document.getElementById('totalNightBonus').innerText = `+${totalNightBonus.toFixed(2)} €`;
       
-      document.getElementById('totalSundayHoliday').innerText = formatMinutesToHours(grandSundayMins);
-      document.getElementById('totalSundayHolidayBonus').innerText = `+${totalSundayBonus.toFixed(2)} €`;
+      document.getElementById('totalSundayHoliday').innerText = formatMinutesToHours(totalSundayHolidayMins);
+      document.getElementById('totalSundayHolidayBonus').innerText = `+${totalSundayHolidayBonus.toFixed(2)} €`;
 
       document.getElementById('countCP').innerText = `${countCP} j`;
+      document.getElementById('soldeCPAnnuel').innerText = `${soldeRestantCP.toFixed(1)} j`;
       document.getElementById('countAM').innerText = `${countAM} j`;
 
       const balanceEl = document.getElementById('totalBalance');
       balanceEl.innerText = formatMinutesToHours(netBalanceMins);
-      if (netBalanceMins > 0) {
-        balanceEl.className = 'text-sm font-bold text-emerald-600';
-      } else if (netBalanceMins < 0) {
-        balanceEl.className = 'text-sm font-bold text-rose-600';
-      } else {
-        balanceEl.className = 'text-sm font-bold text-slate-800';
-      }
+      balanceEl.className = netBalanceMins > 0 ? 'text-sm font-bold text-emerald-600' : (netBalanceMins < 0 ? 'text-sm font-bold text-rose-600' : 'text-sm font-bold text-slate-800');
 
       document.getElementById('salaryGross').innerText = `${totalGross.toFixed(2)} €`;
       document.getElementById('salaryNet').innerText = `${totalNetEstimated.toFixed(2)} €`;
+
+      // Mise à jour de la zone invisible dédiée au PDF
+      document.getElementById('pdfTotalWorked').innerText = formatMinutesToHours(grandTotalMins);
+      document.getElementById('pdfTotalNight').innerText = formatMinutesToHours(grandTotalNightMins);
+      document.getElementById('pdfTotalSundayHoliday').innerText = formatMinutesToHours(totalSundayHolidayMins);
+      document.getElementById('pdfSalaryNet').innerText = `${totalNetEstimated.toFixed(2)} €`;
     }
 
     function toggleSettingsModal() {
@@ -501,14 +692,27 @@
       modal.classList.toggle('hidden');
     }
 
+    /**
+     * Export JSON compatible iOS Safari (Blob direct)
+     */
     function exportDataJSON() {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `Sauvegarde_Heures_GSF_${new Date().toISOString().slice(0,10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
+      const jsonStr = JSON.stringify(logs, null, 2);
+      
+      try {
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.href = url;
+        downloadAnchor.download = `Sauvegarde_Heures_GSF_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (e) {
+        // Fallback si Safari bloque le téléchargement direct
+        document.getElementById('jsonFallbackArea').classList.remove('hidden');
+        document.getElementById('jsonRawText').value = jsonStr;
+      }
     }
 
     function importDataJSON(event) {
@@ -527,19 +731,88 @@
       fileReader.readAsText(event.target.files[0]);
     }
 
+    /**
+     * Export PDF Haute Qualité 1 Seule Page
+     */
     function exportPDF() {
-      const element = document.body;
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const daysCount = getDaysInMonth(year, month);
+      const holidays = getFrenchHolidays(year);
       const monthText = document.getElementById('currentMonthLabel').innerText;
-      
+
+      document.getElementById('pdfMonthHeader').innerText = monthText;
+      document.getElementById('pdfPrintDate').innerText = new Date().toLocaleDateString('fr-FR');
+
+      // Construction du tableau synthétique
+      const pdfTableBody = document.getElementById('pdfTableBody');
+      pdfTableBody.innerHTML = '';
+
+      for (let day = 1; day <= daysCount; day++) {
+        const dateObj = new Date(year, month, day);
+        const dayOfWeek = dateObj.getDay();
+        const isSunday = (dayOfWeek === 0);
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+        const dateKey = formatDateKey(year, month, day);
+        const holidayName = holidays[dateKey];
+        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '' };
+
+        const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+
+        let shift1Text = '-';
+        let shift2Text = '-';
+        let dayTotalMins = 0;
+        let dayNightMins = 0;
+
+        if (log.status === 'CP') {
+          shift1Text = 'CONGÉ PAYÉ';
+          dayTotalMins = DAILY_TARGET_MINS;
+        } else if (log.status === 'AM') {
+          shift1Text = 'ARRÊT MALADIE';
+        } else if (log.status === 'OFF') {
+          shift1Text = 'REPOS';
+        } else if (log.status === 'WORK') {
+          if (log.start1 && log.end1) shift1Text = `${log.start1} - ${log.end1}`;
+          if (log.start2 && log.end2) shift2Text = `${log.start2} - ${log.end2}`;
+
+          const s1 = calculateShift(log.start1, log.end1);
+          const s2 = calculateShift(log.start2, log.end2);
+          dayTotalMins = s1.totalMins + s2.totalMins;
+          dayNightMins = s1.nightMins + s2.nightMins;
+        }
+
+        let bgStyle = isWeekend || holidayName ? 'background-color: #f1f5f9;' : '';
+        let labelExtra = holidayName ? ` (${holidayName})` : '';
+
+        pdfTableBody.innerHTML += `
+          <tr style="${bgStyle} border-bottom: 1px solid #e2e8f0;">
+            <td style="padding:3px 6px; font-weight:bold;">${dayName}${labelExtra}</td>
+            <td style="padding:3px 6px; text-align:center;">${shift1Text}</td>
+            <td style="padding:3px 6px; text-align:center;">${shift2Text}</td>
+            <td style="padding:3px 6px; text-align:center; font-weight:bold;">${dayTotalMins > 0 ? formatMinutesToHours(dayTotalMins) : '-'}</td>
+            <td style="padding:3px 6px; text-align:center; color:#4338ca;">${dayNightMins > 0 ? formatMinutesToHours(dayNightMins) : '-'}</td>
+            <td style="padding:3px 6px; color:#475569;">${log.comment || ''}</td>
+          </tr>
+        `;
+      }
+
+      // Basculer en mode PDF pour le rendu
+      document.body.classList.add('pdf-mode');
+      const element = document.getElementById('pdfRenderArea');
+
       const opt = {
-        margin:       6,
+        margin:       [5, 5, 5, 5],
         filename:     `Fiche_Heures_GSF_${monthText.replace(' ', '_')}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
+        html2canvas:  { scale: 2, useCORS: true },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      html2pdf().set(opt).from(element).save();
+      html2pdf().set(opt).from(element).save().then(() => {
+        document.body.classList.remove('pdf-mode');
+      }).catch(() => {
+        document.body.classList.remove('pdf-mode');
+      });
     }
 
     // Premier rendu
