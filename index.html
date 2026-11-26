@@ -61,6 +61,33 @@
       padding: 1px 4px;
       border-radius: 4px;
     }
+
+    .pdf-tag-blue {
+      background-color: #dbeafe;
+      color: #1d4ed8;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 7.5px;
+    }
+
+    .pdf-tag-pink {
+      background-color: #fce7f3;
+      color: #be185d;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 7.5px;
+    }
+
+    .pdf-tag-black {
+      background-color: #1e293b;
+      color: #ffffff;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 7.5px;
+    }
   </style>
 </head>
 <body class="text-slate-900 min-h-screen pb-16 pt-4 px-3 sm:px-6 max-w-xl mx-auto">
@@ -224,20 +251,52 @@
     </div>
 
     <!-- Tableau Synthétique Jours PDF (Regroupé par semaine) -->
-    <table style="width:100%; border-collapse:collapse; font-size:8.5px; margin-bottom:10px;">
+    <table style="width:100%; border-collapse:collapse; font-size:8.5px; margin-bottom:8px;">
       <thead>
         <tr style="background:#0284c7; color:white; font-size:8px; text-transform:uppercase;">
           <th style="padding:4px 5px; text-align:left; border:1px solid #0284c7; width:17%;">Jour</th>
-          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:16%;">Créneau 1</th>
-          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:16%;">Créneau 2</th>
-          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:11%;">Travail</th>
-          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:10%;">Trajet</th>
-          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:11%;">H.Supp</th>
-          <th style="padding:4px 5px; text-align:left; border:1px solid #0284c7; width:19%;">Remarque / Lieu</th>
+          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:18%;">Créneau 1</th>
+          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:18%;">Créneau 2</th>
+          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:10%;">Travail</th>
+          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:9%;">Trajet</th>
+          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:10%;">H.Supp</th>
+          <th style="padding:4px 5px; text-align:left; border:1px solid #0284c7; width:18%;">Remarque / Lieu</th>
         </tr>
       </thead>
       <tbody id="pdfTableBody"></tbody>
     </table>
+
+    <!-- Bilan par Responsable / Couleur à la fin du PDF -->
+    <div id="pdfCategorySummary" style="margin-bottom:8px;">
+      <table style="width:100%; border-collapse:collapse; font-size:8.5px;">
+        <thead>
+          <tr>
+            <th style="padding:4px 6px; background:#eff6ff; color:#1d4ed8; border:1px solid #93c5fd; text-align:center; width:33.33%;">
+              <span style="display:inline-block; width:8px; height:8px; background:#2563eb; border-radius:2px; margin-right:4px; vertical-align:middle;"></span>BLEU — Medhi
+            </th>
+            <th style="padding:4px 6px; background:#fdf2f8; color:#be185d; border:1px solid #f9a8d4; text-align:center; width:33.33%;">
+              <span style="display:inline-block; width:8px; height:8px; background:#ec4899; border-radius:2px; margin-right:4px; vertical-align:middle;"></span>ROSE — Myriam
+            </th>
+            <th style="padding:4px 6px; background:#1e293b; color:#ffffff; border:1px solid #0f172a; text-align:center; width:33.33%;">
+              <span style="display:inline-block; width:8px; height:8px; background:#000000; border:1px solid #64748b; border-radius:2px; margin-right:4px; vertical-align:middle;"></span>NOIR — Audrey
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td id="pdfSumBlue" style="padding:5px 6px; background:#f8fafc; border:1px solid #93c5fd; text-align:center; font-weight:700; color:#1e3a8a;">
+              0 jour(s) • 0h00
+            </td>
+            <td id="pdfSumPink" style="padding:5px 6px; background:#f8fafc; border:1px solid #f9a8d4; text-align:center; font-weight:700; color:#831843;">
+              0 jour(s) • 0h00
+            </td>
+            <td id="pdfSumBlack" style="padding:5px 6px; background:#f8fafc; border:1px solid #cbd5e1; text-align:center; font-weight:700; color:#0f172a;">
+              0 jour(s) • 0h00
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <div style="display:flex; justify-content:space-between; font-size:8.5px; color:#64748b; border-top:1px dashed #cbd5e1; padding-top:4px;">
       <span>Document généré le <span id="pdfPrintDate"></span></span>
@@ -345,6 +404,29 @@
     const MONTHLY_BASE_HOURS = 151.67;
     const DAILY_TARGET_MINS = 7 * 60; // 7h par jour ouvré (35h / 5j)
 
+    const SITE_OPTIONS = [
+      { id: '', label: 'Site / Couleur...', color: 'NONE', short: '' },
+      { id: 'BLUE_TRANE', label: '[BLEU] Trane (Medhi)', color: 'BLUE', short: 'Trane' },
+      { id: 'BLUE_LECLERC_GOLBEY', label: '[BLEU] Leclerc Golbey (Medhi)', color: 'BLUE', short: 'Leclerc Golbey' },
+      { id: 'BLUE_LECLERC_NEUF', label: '[BLEU] Leclerc Neufchâteau (Medhi)', color: 'BLUE', short: 'Leclerc Neuf.' },
+      { id: 'BLUE_LIBRE', label: '[BLEU] Autre site / Libre (Medhi)', color: 'BLUE', short: 'Bleu (Libre)' },
+      { id: 'PINK_INRS', label: '[ROSE] INRS (Myriam)', color: 'PINK', short: 'INRS' },
+      { id: 'PINK_LECLERC_RAON', label: '[ROSE] Leclerc Raon l’Étape (Myriam)', color: 'PINK', short: 'Leclerc Raon' },
+      { id: 'PINK_GNT', label: '[ROSE] GNT (Myriam)', color: 'PINK', short: 'GNT' },
+      { id: 'BLACK_OI', label: '[NOIR] OI (Audrey)', color: 'BLACK', short: 'OI' }
+    ];
+
+    function getSiteMeta(siteId) {
+      return SITE_OPTIONS.find(s => s.id === siteId) || SITE_OPTIONS[0];
+    }
+
+    function getSiteSelectClasses(color) {
+      if (color === 'BLUE') return 'bg-blue-600 text-white border-blue-700';
+      if (color === 'PINK') return 'bg-pink-500 text-white border-pink-600';
+      if (color === 'BLACK') return 'bg-slate-900 text-white border-black';
+      return 'bg-slate-50 text-slate-600 border-slate-200';
+    }
+
     let currentDate = new Date();
     let logs = JSON.parse(localStorage.getItem('work_logs_v3') || '{}');
     let cpBaseAcquired = parseFloat(localStorage.getItem('cp_base_acquired') || '25.0');
@@ -360,10 +442,26 @@
 
     document.getElementById('cpBaseInput').value = cpBaseAcquired;
 
+    function saveLogs() {
+      localStorage.setItem('work_logs_v3', JSON.stringify(logs));
+      updateCalculations();
+    }
+
     function saveRoutes() {
       localStorage.setItem('gsf_saved_routes_v2', JSON.stringify(savedRoutes));
       renderSavedRoutesSettings();
-      render();
+      renderCalendar();
+    }
+
+    function renderSavedRoutesSettings() {
+      const container = document.getElementById('savedRoutesList');
+      if (!container) return;
+      container.innerHTML = savedRoutes.map((r, idx) => `
+        <div class="flex justify-between items-center bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs">
+          <span class="font-semibold text-slate-700">${r.name}</span>
+          <button onclick="deleteSavedRoute(${idx})" class="text-rose-500 font-bold px-1.5">✕</button>
+        </div>
+      `).join('');
     }
 
     function addSavedRoute() {
@@ -373,28 +471,17 @@
       const mins = parseInt(minsInput.value, 10);
       if (!name || isNaN(mins) || mins <= 0) return;
 
-      savedRoutes.push({ id: 'r_' + Date.now(), name: `${name} (${formatMinutesToHours(mins)})`, mins });
+      const label = `${name} (${formatMinutesToHours(mins)})`;
+      savedRoutes.push({ id: 'route_' + Date.now(), name: label, mins });
       nameInput.value = '';
       minsInput.value = '';
       saveRoutes();
     }
 
-    function deleteSavedRoute(id) {
-      savedRoutes = savedRoutes.filter(r => r.id !== id);
+    function deleteSavedRoute(index) {
+      savedRoutes.splice(index, 1);
       saveRoutes();
     }
-
-    function renderSavedRoutesSettings() {
-      const container = document.getElementById('savedRoutesList');
-      if (!container) return;
-      container.innerHTML = savedRoutes.map(r => `
-        <div class="flex justify-between items-center bg-slate-50 px-2.5 py-1.5 rounded-lg border text-xs">
-          <span class="font-medium text-slate-700">${r.name}</span>
-          <button onclick="deleteSavedRoute('${r.id}')" class="text-rose-500 font-bold px-1.5">✕</button>
-        </div>
-      `).join('');
-    }
-    renderSavedRoutesSettings();
 
     function saveCPBase(val) {
       cpBaseAcquired = parseFloat(val) || 25.0;
@@ -402,14 +489,9 @@
       updateCalculations();
     }
 
-    function saveLogs() {
-      localStorage.setItem('work_logs_v3', JSON.stringify(logs));
-      updateCalculations();
-    }
-
     function changeMonth(offset) {
       currentDate.setMonth(currentDate.getMonth() + offset);
-      render();
+      renderCalendar();
     }
 
     function getDaysInMonth(year, month) {
@@ -420,41 +502,20 @@
       return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
 
-    function parseTimeToMinutes(timeStr) {
-      if (!timeStr) return null;
-      const [h, m] = timeStr.split(':').map(Number);
-      return h * 60 + m;
-    }
-
-    function formatMinutesToHours(minutes) {
-      if (isNaN(minutes) || minutes === 0) return '0h00';
-      const isNegative = minutes < 0;
-      const absM = Math.abs(minutes);
-      const h = Math.floor(absM / 60);
-      const m = Math.round(absM % 60);
-      return `${isNegative ? '-' : ''}${h}h${String(m).padStart(2, '0')}`;
-    }
-
-    /**
-     * Calcul des jours fériés français (fixes et mobiles)
-     */
+    // Détection automatique des jours fériés en France (Fixes + Pâques/Ascension/Pentecôte)
     function getFrenchHolidays(year) {
-      const holidays = {};
-      const add = (m, d, name) => {
-        const k = `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        holidays[k] = name;
+      const holidays = {
+        [`${year}-01-01`]: "Jour de l'An",
+        [`${year}-05-01`]: "Fête du Travail",
+        [`${year}-05-08`]: "Victoire 1945",
+        [`${year}-07-14`]: "Fête Nationale",
+        [`${year}-08-15`]: "Assomption",
+        [`${year}-11-01`]: "Toussaint",
+        [`${year}-11-11`]: "Armistice 1918",
+        [`${year}-12-25`]: "Noël"
       };
 
-      add(1, 1, "Jour de l'An");
-      add(5, 1, "1er Mai");
-      add(5, 8, "8 Mai 1945");
-      add(7, 14, "14 Juillet");
-      add(8, 15, "Assomption");
-      add(11, 1, "Toussaint");
-      add(11, 11, "11 Novembre");
-      add(12, 25, "Noël");
-
-      // Calcul de Pâques (Algorithme de Butcher)
+      // Algorithme de Meeus pour Pâques
       const a = year % 19;
       const b = Math.floor(year / 100);
       const c = year % 100;
@@ -467,148 +528,179 @@
       const k = c % 4;
       const l = (32 + 2 * e + 2 * i - h - k) % 7;
       const m = Math.floor((a + 11 * h + 22 * l) / 451);
-      const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
-      const day = ((h + l - 7 * m + 114) % 31) + 1;
+      const easterMonth = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+      const easterDay = ((h + l - 7 * m + 114) % 31) + 1;
 
-      const easter = new Date(year, month, day);
-      
-      const easterMonday = new Date(easter); easterMonday.setDate(easter.getDate() + 1);
-      add(easterMonday.getMonth() + 1, easterMonday.getDate(), "Lundi de Pâques");
+      const easter = new Date(year, easterMonth, easterDay);
 
-      const ascension = new Date(easter); ascension.setDate(easter.getDate() + 39);
-      add(ascension.getMonth() + 1, ascension.getDate(), "Ascension");
+      const addDays = (date, days) => {
+        const res = new Date(date);
+        res.setDate(res.getDate() + days);
+        return formatDateKey(res.getFullYear(), res.getMonth(), res.getDate());
+      };
 
-      const pentecost = new Date(easter); pentecost.setDate(easter.getDate() + 50);
-      add(pentecost.getMonth() + 1, pentecost.getDate(), "Lundi de Pentecôte");
+      holidays[addDays(easter, 1)] = "Lundi de Pâques";
+      holidays[addDays(easter, 39)] = "Ascension";
+      holidays[addDays(easter, 50)] = "Lundi de Pentecôte";
 
       return holidays;
     }
 
-    /**
-     * Calcule la durée totale et la part d'heures de nuit (21h00 - 06h00)
-     */
-    function calculateShift(startStr, endStr) {
-      const start = parseTimeToMinutes(startStr);
-      let end = parseTimeToMinutes(endStr);
+    function timeToMinutes(timeStr) {
+      if (!timeStr) return null;
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    }
 
+    function calculateShift(startStr, endStr) {
+      const start = timeToMinutes(startStr);
+      let end = timeToMinutes(endStr);
       if (start === null || end === null) return { totalMins: 0, nightMins: 0 };
 
-      if (end <= start) {
-        end += 24 * 60; // Équipe à cheval sur minuit
-      }
-
+      if (end < start) end += 1440; // Passage minuit
       const totalMins = end - start;
-
-      const nightWindows = [
-        [0, 360],         // 00:00 - 06:00
-        [1260, 1800],     // 21:00 - 30:00 (06:00 J+1)
-        [2700, 3240]      // 21:00 J+1 - 06:00 J+2
-      ];
-
       let nightMins = 0;
-      for (const [wStart, wEnd] of nightWindows) {
-        const overlap = Math.max(0, Math.min(end, wEnd) - Math.max(start, wStart));
-        nightMins += overlap;
-      }
 
+      for (let m = start; m < end; m++) {
+        const minuteOfDay = m % 1440;
+        if (minuteOfDay >= 1260 || minuteOfDay < 360) {
+          nightMins++;
+        }
+      }
       return { totalMins, nightMins };
+    }
+
+    function formatMinutesToHours(totalMinutes) {
+      const sign = totalMinutes < 0 ? '-' : '';
+      const absMins = Math.abs(Math.round(totalMinutes));
+      const h = Math.floor(absMins / 60);
+      const m = absMins % 60;
+      return `${sign}${h}h${String(m).padStart(2, '0')}`;
+    }
+
+    function setDayStatus(dateKey, status) {
+      if (!logs[dateKey]) {
+        logs[dateKey] = { status: 'WORK', start1: '', end1: '', site1: '', start2: '', end2: '', site2: '', comment: '', isForcedOvertime: false, travels: [] };
+      }
+      logs[dateKey].status = status;
+      saveLogs();
+      renderCalendar();
+    }
+
+    function toggleForcedOvertime(dateKey) {
+      if (!logs[dateKey]) {
+        logs[dateKey] = { status: 'WORK', start1: '', end1: '', site1: '', start2: '', end2: '', site2: '', comment: '', isForcedOvertime: false, travels: [] };
+      }
+      logs[dateKey].isForcedOvertime = !logs[dateKey].isForcedOvertime;
+      saveLogs();
+      renderCalendar();
     }
 
     function updateDayField(dateKey, field, value) {
       if (!logs[dateKey]) {
-        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
+        logs[dateKey] = { status: 'WORK', start1: '', end1: '', site1: '', start2: '', end2: '', site2: '', comment: '', isForcedOvertime: false, travels: [] };
       }
       logs[dateKey][field] = value;
       saveLogs();
+      if (field === 'site1' || field === 'site2') {
+        const el = document.getElementById(`select-${field}-${dateKey}`);
+        if (el) {
+          const meta = getSiteMeta(value);
+          el.className = `w-full h-full text-[11px] font-bold px-2 py-1.5 rounded-xl border focus:outline-none ${getSiteSelectClasses(meta.color)}`;
+        }
+      }
     }
 
     function getDayTravels(log) {
       if (Array.isArray(log.travels)) return log.travels;
       if (log.travelType && log.travelType !== 'NONE') {
-        return [{ type: log.travelType, mins: parseInt(log.travelMins, 10) || 0 }];
+        if (log.travelType === 'CUSTOM') {
+          return [{ type: 'CUSTOM', mins: parseInt(log.travelCustomMins, 10) || 0 }];
+        }
+        const route = savedRoutes.find(r => r.id === log.travelType);
+        return [{ type: log.travelType, mins: route ? route.mins : 0 }];
       }
       return [];
     }
 
     function getDayTotalTravelMins(log) {
-      return getDayTravels(log).reduce((sum, t) => sum + (parseInt(t.mins, 10) || 0), 0);
+      const list = getDayTravels(log);
+      return list.reduce((sum, item) => {
+        if (item.type === 'CUSTOM') return sum + (parseInt(item.mins, 10) || 0);
+        const route = savedRoutes.find(r => r.id === item.type);
+        return sum + (route ? route.mins : (parseInt(item.mins, 10) || 0));
+      }, 0);
     }
 
     function addDayTravel(dateKey) {
       if (!logs[dateKey]) {
-        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
+        logs[dateKey] = { status: 'WORK', start1: '', end1: '', site1: '', start2: '', end2: '', site2: '', comment: '', isForcedOvertime: false, travels: [] };
       }
-      logs[dateKey].travels = getDayTravels(logs[dateKey]);
+      const list = getDayTravels(logs[dateKey]);
       const defaultRoute = savedRoutes[0];
-      logs[dateKey].travels.push({
-        type: defaultRoute ? defaultRoute.id : 'CUSTOM',
-        mins: defaultRoute ? defaultRoute.mins : 0
-      });
+      list.push(defaultRoute ? { type: defaultRoute.id, mins: defaultRoute.mins } : { type: 'CUSTOM', mins: 30 });
+      logs[dateKey].travels = list;
+      delete logs[dateKey].travelType;
+      delete logs[dateKey].travelCustomMins;
       saveLogs();
-      render();
+      renderCalendar();
     }
 
     function removeDayTravel(dateKey, index) {
       if (!logs[dateKey]) return;
-      logs[dateKey].travels = getDayTravels(logs[dateKey]);
-      logs[dateKey].travels.splice(index, 1);
+      const list = getDayTravels(logs[dateKey]);
+      list.splice(index, 1);
+      logs[dateKey].travels = list;
       saveLogs();
-      render();
+      renderCalendar();
     }
 
     function updateDayTravelItemType(dateKey, index, type) {
       if (!logs[dateKey]) return;
-      logs[dateKey].travels = getDayTravels(logs[dateKey]);
-      if (!logs[dateKey].travels[index]) return;
-      logs[dateKey].travels[index].type = type;
+      const list = getDayTravels(logs[dateKey]);
+      if (!list[index]) return;
       if (type === 'CUSTOM') {
-        logs[dateKey].travels[index].mins = logs[dateKey].travels[index].mins || 0;
+        list[index] = { type: 'CUSTOM', mins: list[index].mins || 30 };
       } else {
         const route = savedRoutes.find(r => r.id === type);
-        logs[dateKey].travels[index].mins = route ? route.mins : 0;
+        list[index] = { type, mins: route ? route.mins : 0 };
       }
+      logs[dateKey].travels = list;
       saveLogs();
-      render();
+      renderCalendar();
     }
 
-    function updateDayTravelItemMins(dateKey, index, mins) {
+    function updateDayTravelItemMins(dateKey, index, val) {
       if (!logs[dateKey]) return;
-      logs[dateKey].travels = getDayTravels(logs[dateKey]);
-      if (!logs[dateKey].travels[index]) return;
-      logs[dateKey].travels[index].mins = parseInt(mins, 10) || 0;
+      const list = getDayTravels(logs[dateKey]);
+      if (!list[index]) return;
+      const mins = parseInt(val, 10) || 0;
+      list[index].mins = mins;
+      logs[dateKey].travels = list;
       saveLogs();
       const labelEl = document.getElementById(`travel-custom-label-${dateKey}-${index}`);
-      if (labelEl) labelEl.innerText = `(${formatMinutesToHours(logs[dateKey].travels[index].mins)})`;
-    }
-
-    function setDayStatus(dateKey, status) {
-      if (!logs[dateKey]) {
-        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
-      }
-      logs[dateKey].status = status;
-      saveLogs();
-      render();
-    }
-
-    function toggleForcedOvertime(dateKey) {
-      if (!logs[dateKey]) {
-        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
-      }
-      logs[dateKey].isForcedOvertime = !logs[dateKey].isForcedOvertime;
-      saveLogs();
-      render();
+      if (labelEl) labelEl.innerText = `(${formatMinutesToHours(mins)})`;
     }
 
     function toggleShift2(dateKey) {
       const container = document.getElementById(`shift2-${dateKey}`);
       const btn = document.getElementById(`btn-shift2-${dateKey}`);
-      if (container) {
-        container.classList.toggle('hidden');
-        btn.innerText = container.classList.contains('hidden') ? '+ Créneau 2' : '− Masquer Créneau 2';
+      if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        btn.innerText = '− Masquer Créneau 2';
+      } else {
+        container.classList.add('hidden');
+        btn.innerText = '+ Créneau 2';
+        if (logs[dateKey]) {
+          logs[dateKey].start2 = '';
+          logs[dateKey].end2 = '';
+          logs[dateKey].site2 = '';
+          saveLogs();
+        }
       }
     }
 
-    function render() {
+    function renderCalendar() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
       const daysCount = getDaysInMonth(year, month);
@@ -627,11 +719,13 @@
         const isSaturday = dayOfWeek === 6;
         const dateKey = formatDateKey(year, month, day);
         const holidayName = holidays[dateKey];
-        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
+        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', site1: '', start2: '', end2: '', site2: '', comment: '', isForcedOvertime: false, travels: [] };
         const dayTravels = getDayTravels(log);
 
         const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
-        const hasShift2 = Boolean(log.start2 || log.end2);
+        const hasShift2 = Boolean(log.start2 || log.end2 || log.site2);
+        const site1Meta = getSiteMeta(log.site1 || '');
+        const site2Meta = getSiteMeta(log.site2 || '');
 
         const card = document.createElement('div');
         card.className = `bg-white rounded-2xl p-3.5 shadow-sm border ${holidayName ? 'border-amber-300 bg-amber-50/10' : isSunday ? 'border-amber-200/80' : 'border-slate-200/80'}`;
@@ -672,30 +766,42 @@
           <!-- Inputs Heures (Visible uniquement si Travail) -->
           ${log.status === 'WORK' ? `
             <!-- Créneau 1 -->
-            <div class="grid grid-cols-2 gap-2 mb-2">
-              <div class="relative bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-200">
-                <label class="text-[10px] font-medium text-slate-400 block">Début 1</label>
+            <div class="grid grid-cols-12 gap-1.5 mb-2 items-stretch">
+              <div class="col-span-3 relative bg-slate-50 rounded-xl px-2 py-1.5 border border-slate-200">
+                <label class="text-[9px] font-medium text-slate-400 block">Début 1</label>
                 <input type="time" value="${log.start1 || ''}" onchange="updateDayField('${dateKey}', 'start1', this.value)"
-                  class="w-full bg-transparent text-sm font-bold text-slate-800 focus:outline-none">
+                  class="w-full bg-transparent text-xs font-bold text-slate-800 focus:outline-none">
               </div>
-              <div class="relative bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-200">
-                <label class="text-[10px] font-medium text-slate-400 block">Fin 1</label>
+              <div class="col-span-3 relative bg-slate-50 rounded-xl px-2 py-1.5 border border-slate-200">
+                <label class="text-[9px] font-medium text-slate-400 block">Fin 1</label>
                 <input type="time" value="${log.end1 || ''}" onchange="updateDayField('${dateKey}', 'end1', this.value)"
-                  class="w-full bg-transparent text-sm font-bold text-slate-800 focus:outline-none">
+                  class="w-full bg-transparent text-xs font-bold text-slate-800 focus:outline-none">
+              </div>
+              <div class="col-span-6 flex items-center">
+                <select id="select-site1-${dateKey}" onchange="updateDayField('${dateKey}', 'site1', this.value)"
+                  class="w-full h-full text-[11px] font-bold px-2 py-1.5 rounded-xl border focus:outline-none ${getSiteSelectClasses(site1Meta.color)}">
+                  ${SITE_OPTIONS.map(opt => `<option value="${opt.id}" ${(log.site1 || '') === opt.id ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
               </div>
             </div>
 
             <!-- Créneau 2 (Coupé) -->
-            <div id="shift2-${dateKey}" class="${hasShift2 ? '' : 'hidden'} grid grid-cols-2 gap-2 mb-2 pt-1 border-t border-dashed border-slate-200">
-              <div class="relative bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-200">
-                <label class="text-[10px] font-medium text-slate-400 block">Début 2 (Coupé)</label>
+            <div id="shift2-${dateKey}" class="${hasShift2 ? '' : 'hidden'} grid grid-cols-12 gap-1.5 mb-2 pt-1.5 border-t border-dashed border-slate-200 items-stretch">
+              <div class="col-span-3 relative bg-slate-50 rounded-xl px-2 py-1.5 border border-slate-200">
+                <label class="text-[9px] font-medium text-slate-400 block">Début 2</label>
                 <input type="time" value="${log.start2 || ''}" onchange="updateDayField('${dateKey}', 'start2', this.value)"
-                  class="w-full bg-transparent text-sm font-bold text-slate-800 focus:outline-none">
+                  class="w-full bg-transparent text-xs font-bold text-slate-800 focus:outline-none">
               </div>
-              <div class="relative bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-200">
-                <label class="text-[10px] font-medium text-slate-400 block">Fin 2 (Coupé)</label>
+              <div class="col-span-3 relative bg-slate-50 rounded-xl px-2 py-1.5 border border-slate-200">
+                <label class="text-[9px] font-medium text-slate-400 block">Fin 2</label>
                 <input type="time" value="${log.end2 || ''}" onchange="updateDayField('${dateKey}', 'end2', this.value)"
-                  class="w-full bg-transparent text-sm font-bold text-slate-800 focus:outline-none">
+                  class="w-full bg-transparent text-xs font-bold text-slate-800 focus:outline-none">
+              </div>
+              <div class="col-span-6 flex items-center">
+                <select id="select-site2-${dateKey}" onchange="updateDayField('${dateKey}', 'site2', this.value)"
+                  class="w-full h-full text-[11px] font-bold px-2 py-1.5 rounded-xl border focus:outline-none ${getSiteSelectClasses(site2Meta.color)}">
+                  ${SITE_OPTIONS.map(opt => `<option value="${opt.id}" ${(log.site2 || '') === opt.id ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
               </div>
             </div>
 
@@ -1019,13 +1125,28 @@
       let currentWeekOvertimeMins = 0;
       let weekRowsHtml = '';
 
+      // Compteurs par couleur / responsable (Bleu: Medhi, Rose: Myriam, Noir: Audrey)
+      let colorStats = {
+        BLUE: { mins: 0, days: 0 },
+        PINK: { mins: 0, days: 0 },
+        BLACK: { mins: 0, days: 0 }
+      };
+
+      const renderSiteBadge = (meta) => {
+        if (!meta || meta.color === 'NONE') return '';
+        if (meta.color === 'BLUE') return `<span class="pdf-tag-blue">${meta.short}</span>`;
+        if (meta.color === 'PINK') return `<span class="pdf-tag-pink">${meta.short}</span>`;
+        if (meta.color === 'BLACK') return `<span class="pdf-tag-black">${meta.short}</span>`;
+        return '';
+      };
+
       for (let day = 1; day <= daysCount; day++) {
         const dateObj = new Date(year, month, day);
         const dayOfWeek = dateObj.getDay();
         const isSunday = dayOfWeek === 0;
         const dateKey = formatDateKey(year, month, day);
         const holidayName = holidays[dateKey];
-        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
+        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', site1: '', start2: '', end2: '', site2: '', comment: '', isForcedOvertime: false, travels: [] };
 
         const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
         let shift1Text = '-';
@@ -1059,11 +1180,29 @@
           dayTotalMins = s1.totalMins + s2.totalMins;
           dayTravelMins = getDayTotalTravelMins(log);
 
+          const meta1 = getSiteMeta(log.site1 || '');
+          const meta2 = getSiteMeta(log.site2 || '');
+
+          const dayColorsWorked = new Set();
+          if (s1.totalMins > 0 && colorStats[meta1.color]) {
+            colorStats[meta1.color].mins += s1.totalMins;
+            dayColorsWorked.add(meta1.color);
+          }
+          if (s2.totalMins > 0 && colorStats[meta2.color]) {
+            colorStats[meta2.color].mins += s2.totalMins;
+            dayColorsWorked.add(meta2.color);
+          }
+          dayColorsWorked.forEach(c => colorStats[c].days++);
+
           currentWeekMins += dayTotalMins;
           currentWeekTravelMins += dayTravelMins;
 
-          if (log.start1 && log.end1) shift1Text = `${log.start1} - ${log.end1}`;
-          if (log.start2 && log.end2) shift2Text = `${log.start2} - ${log.end2}`;
+          if (log.start1 && log.end1) {
+            shift1Text = `${log.start1}-${log.end1} ${renderSiteBadge(meta1)}`;
+          }
+          if (log.start2 && log.end2) {
+            shift2Text = `${log.start2}-${log.end2} ${renderSiteBadge(meta2)}`;
+          }
           if (dayTotalMins > 0) totalText = formatMinutesToHours(dayTotalMins);
           if (dayTravelMins > 0) travelText = `<span class="pdf-travel-tag">🚗 ${formatMinutesToHours(dayTravelMins)}</span>`;
 
@@ -1079,42 +1218,42 @@
 
         weekRowsHtml += `
           <tr style="background:${rowBg};">
-            <td style="padding:2px 5px; border:1px solid #cbd5e1; font-weight:600; text-transform:capitalize;">${dayName}</td>
-            <td style="padding:2px 5px; border:1px solid #cbd5e1; text-align:center;">${shift1Text}</td>
-            <td style="padding:2px 5px; border:1px solid #cbd5e1; text-align:center;">${shift2Text}</td>
-            <td style="padding:2px 5px; border:1px solid #cbd5e1; text-align:center; font-weight:700;">${totalText}</td>
-            <td class="pdf-col-travel" style="padding:2px 5px; border:1px solid #cbd5e1; text-align:center;">${travelText}</td>
-            <td style="padding:2px 5px; border:1px solid #cbd5e1; text-align:center;">${overtimeText}</td>
-            <td class="pdf-col-comment" style="padding:2px 5px; border:1px solid #cbd5e1; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:130px;">${remarkText}</td>
+            <td style="padding:1.8px 5px; border:1px solid #e2e8f0; font-weight:600; text-transform:capitalize;">${dayName} ${holidayName ? '★' : ''}</td>
+            <td style="padding:1.8px 5px; border:1px solid #e2e8f0; text-align:center;">${shift1Text}</td>
+            <td style="padding:1.8px 5px; border:1px solid #e2e8f0; text-align:center;">${shift2Text}</td>
+            <td style="padding:1.8px 5px; border:1px solid #e2e8f0; text-align:center; font-weight:700;">${totalText}</td>
+            <td style="padding:1.8px 5px; border:1px solid #e2e8f0; text-align:center;" class="pdf-travel-col">${travelText}</td>
+            <td style="padding:1.8px 5px; border:1px solid #e2e8f0; text-align:center;">${overtimeText}</td>
+            <td style="padding:1.8px 5px; border:1px solid #e2e8f0; color:#475569; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" class="pdf-comment-col">${remarkText}</td>
           </tr>
         `;
 
-        // Fin de semaine (Dimanche ou dernier jour du mois) : insertion du bandeau de synthèse hebdomadaire + ses jours
+        // Fin de semaine (Dimanche) ou dernier jour du mois -> On ajoute l'en-tête récapitulatif de la semaine suivi du détail jour par jour
         if (dayOfWeek === 0 || day === daysCount) {
-          const weeklyOver35 = Math.max(0, currentWeekMins - (35 * 60));
-          const totalWeekOvertime = Math.max(weeklyOver35, currentWeekOvertimeMins);
+          const weeklyExcess = Math.max(0, currentWeekMins - (35 * 60));
+          const finalWeekOvertime = Math.max(weeklyExcess, currentWeekOvertimeMins);
 
-          const weekHeaderRow = `
-            <tr style="background:#e0f2fe; color:#0c4a6e; font-weight:800; font-size:8.5px;">
-              <td colspan="3" style="padding:3px 6px; border:1px solid #0284c7;">
-                📅 SEMAINE ${weekIndex}
+          const weekBannerRow = `
+            <tr style="background:#e0f2fe; color:#0c4a6e; font-weight:800; font-size:8px;">
+              <td colspan="3" style="padding:2.5px 6px; border:1px solid #7dd3fc;">
+                SEMAINE ${weekIndex} — Bilan Hebdomadaire
               </td>
-              <td style="padding:3px 5px; border:1px solid #0284c7; text-align:center;">
+              <td style="padding:2.5px 5px; border:1px solid #7dd3fc; text-align:center;">
                 ${formatMinutesToHours(currentWeekMins)}
               </td>
-              <td class="pdf-col-travel" style="padding:3px 5px; border:1px solid #0284c7; text-align:center; color:#0369a1;">
-                ${currentWeekTravelMins > 0 ? formatMinutesToHours(currentWeekTravelMins) : '-'}
+              <td style="padding:2.5px 5px; border:1px solid #7dd3fc; text-align:center; color:#0369a1;">
+                ${currentWeekTravelMins > 0 ? `🚗 ${formatMinutesToHours(currentWeekTravelMins)}` : '-'}
               </td>
-              <td style="padding:3px 5px; border:1px solid #0284c7; text-align:center;">
-                ${totalWeekOvertime > 0 ? `<span class="pdf-overtime-tag">+${formatMinutesToHours(totalWeekOvertime)}</span>` : '0h00'}
+              <td style="padding:2.5px 5px; border:1px solid #7dd3fc; text-align:center; color:#15803d;">
+                ${finalWeekOvertime > 0 ? `+${formatMinutesToHours(finalWeekOvertime)}` : '0h00'}
               </td>
-              <td class="pdf-col-comment" style="padding:3px 5px; border:1px solid #0284c7; font-weight:600;">
-                Bilan Semaine ${weekIndex}
+              <td style="padding:2.5px 5px; border:1px solid #7dd3fc; font-weight:600; font-size:7.5px;">
+                (Trajet hors temps travail)
               </td>
             </tr>
           `;
 
-          tbody.innerHTML += weekHeaderRow + weekRowsHtml;
+          tbody.innerHTML += weekBannerRow + weekRowsHtml;
 
           weekIndex++;
           currentWeekMins = 0;
@@ -1123,106 +1262,102 @@
           weekRowsHtml = '';
         }
       }
+
+      document.getElementById('pdfSumBlue').innerText = `${colorStats.BLUE.days} jour(s) • ${formatMinutesToHours(colorStats.BLUE.mins)}`;
+      document.getElementById('pdfSumPink').innerText = `${colorStats.PINK.days} jour(s) • ${formatMinutesToHours(colorStats.PINK.mins)}`;
+      document.getElementById('pdfSumBlack').innerText = `${colorStats.BLACK.days} jour(s) • ${formatMinutesToHours(colorStats.BLACK.mins)}`;
     }
 
     function togglePdfOptionsModal() {
-      const modal = document.getElementById('pdfOptionsModal');
-      modal.classList.toggle('hidden');
+      document.getElementById('pdfOptionsModal').classList.toggle('hidden');
     }
 
+    // Export PDF Filtré & Téléchargement Direct Compatible iOS Safari (1 seule page A4)
     function generateFilteredPDF() {
-      // Appliquer les filtres sélectionnés par l'utilisateur
+      togglePdfOptionsModal();
+
       const showSalary = document.getElementById('pdfOptSalary').checked;
       const showWeekly = document.getElementById('pdfOptWeekly').checked;
       const showComments = document.getElementById('pdfOptComments').checked;
       const showTravel = document.getElementById('pdfOptTravel').checked;
 
+      // Appliquer les filtres visuels avant rendu
       document.getElementById('pdfSalarySection').style.display = showSalary ? 'grid' : 'none';
       document.getElementById('pdfWeeklySection').style.display = showWeekly ? 'block' : 'none';
 
-      document.querySelectorAll('.pdf-col-comment').forEach(el => {
-        el.style.display = showComments ? 'table-cell' : 'none';
+      document.querySelectorAll('.pdf-comment-col').forEach(el => {
+        el.style.opacity = showComments ? '1' : '0';
       });
-      document.querySelectorAll('.pdf-col-travel').forEach(el => {
-        el.style.display = showTravel ? 'table-cell' : 'none';
+      document.querySelectorAll('.pdf-travel-col').forEach(el => {
+        el.style.opacity = showTravel ? '1' : '0';
       });
 
-      togglePdfOptionsModal();
-      exportPDF();
-    }
-
-    /**
-     * Génère un PDF A4 compact sur 1 SEULE PAGE
-     */
-    function exportPDF() {
-      const monthText = document.getElementById('currentMonthLabel').innerText;
-      const filename = `Releve_GSF_${monthText.replace(/\s+/g, '_')}.pdf`;
+      const monthText = document.getElementById('currentMonthLabel').innerText.replace(' ', '_');
+      const filename = `Releve_GSF_${monthText}.pdf`;
 
       document.body.classList.add('pdf-mode');
       document.getElementById('appContainer').style.display = 'none';
 
       const element = document.getElementById('pdfRenderArea');
-
       const opt = {
         margin:       [3, 3, 3, 3],
         filename:     filename,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+        html2canvas:  { scale: 2, useCORS: true, windowWidth: 794 },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      html2pdf().set(opt).from(element).outputPdf('blob').then((pdfBlob) => {
-        document.body.classList.remove('pdf-mode');
-        document.getElementById('appContainer').style.display = 'block';
-
-        const blobUrl = URL.createObjectURL(pdfBlob);
+      html2pdf().set(opt).from(element).toPdf().get('pdf').then(function(pdf) {
+        const totalPages = pdf.internal.getNumberOfPages();
+        for (let i = totalPages; i > 1; i--) {
+          pdf.deletePage(i);
+        }
+        const blob = pdf.output('blob');
+        const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-
         setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-      }).catch(err => {
-        console.error(err);
+      }).finally(() => {
         document.body.classList.remove('pdf-mode');
         document.getElementById('appContainer').style.display = 'block';
-        alert("Erreur lors de la création du PDF.");
       });
     }
 
     function toggleSettingsModal() {
       const modal = document.getElementById('settingsModal');
       modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        renderSavedRoutesSettings();
+      }
       document.getElementById('jsonFallbackArea').classList.add('hidden');
     }
 
-    /**
-     * Export JSON compatible iOS Safari
-     */
     function exportDataJSON() {
-      const jsonString = JSON.stringify(logs, null, 2);
-      const filename = `Sauvegarde_Heures_GSF_${new Date().toISOString().slice(0, 10)}.json`;
+      const exportPayload = {
+        logs: logs,
+        cpBaseAcquired: cpBaseAcquired,
+        savedRoutes: savedRoutes,
+        exportDate: new Date().toISOString()
+      };
+      const jsonStr = JSON.stringify(exportPayload, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const filename = `sauvegarde_heures_GSF_${new Date().toISOString().slice(0, 10)}.json`;
 
-      try {
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-      } catch (e) {
-        console.warn("Fallback texte activé", e);
-      }
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
 
-      const fallbackArea = document.getElementById('jsonFallbackArea');
-      const rawText = document.getElementById('jsonRawText');
-      rawText.value = jsonString;
-      fallbackArea.classList.remove('hidden');
+      document.getElementById('jsonRawText').value = jsonStr;
+      document.getElementById('jsonFallbackArea').classList.remove('hidden');
     }
 
     function importDataJSON(event) {
@@ -1232,19 +1367,32 @@
       reader.onload = function(e) {
         try {
           const imported = JSON.parse(e.target.result);
-          logs = { ...logs, ...imported };
+          if (imported.logs) {
+            logs = imported.logs;
+            if (imported.cpBaseAcquired) {
+              cpBaseAcquired = imported.cpBaseAcquired;
+              localStorage.setItem('cp_base_acquired', cpBaseAcquired.toString());
+              document.getElementById('cpBaseInput').value = cpBaseAcquired;
+            }
+            if (Array.isArray(imported.savedRoutes)) {
+              savedRoutes = imported.savedRoutes;
+              localStorage.setItem('gsf_saved_routes_v2', JSON.stringify(savedRoutes));
+            }
+          } else {
+            logs = imported;
+          }
           saveLogs();
-          render();
-          alert('✅ Sauvegarde restaurée avec succès !');
+          renderCalendar();
           toggleSettingsModal();
         } catch (err) {
-          alert('❌ Fichier de sauvegarde invalide.');
+          console.error('Fichier invalide', err);
         }
       };
       reader.readAsText(file);
     }
 
-    render();
+    // Lancement initial
+    renderCalendar();
   </script>
 </body>
 </html>
