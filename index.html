@@ -53,6 +53,14 @@
       padding: 1px 4px;
       border-radius: 4px;
     }
+
+    .pdf-travel-tag {
+      background-color: #e0f2fe;
+      color: #0369a1;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body class="text-slate-900 min-h-screen pb-16 pt-4 px-3 sm:px-6 max-w-xl mx-auto">
@@ -125,6 +133,7 @@
         <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
           <span class="text-slate-500 block">Total Travaillé</span>
           <span id="totalWorked" class="text-sm font-bold text-slate-800">0h00</span>
+          <span id="totalTravelSummary" class="text-[10px] text-sky-600 font-semibold block">🚗 Trajet : 0h00</span>
         </div>
 
         <div class="bg-purple-50 p-2.5 rounded-xl border border-purple-100">
@@ -213,17 +222,17 @@
       <strong style="font-size:10px; color:#6b21a8; display:block; margin-bottom:4px; text-transform:uppercase;">📊 Résumé Hebdomadaire (Base 35h / Semaine)</strong>
       <div id="pdfWeeklyList" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:6px; font-size:9px;"></div>
     </div>
-
-    <!-- Tableau Synthétique Jours PDF -->
-    <table style="width:100%; border-collapse:collapse; font-size:9px; margin-bottom:10px;">
+    <!-- Tableau Synthétique Jours PDF (Regroupé par semaine) -->
+    <table style="width:100%; border-collapse:collapse; font-size:8.5px; margin-bottom:10px;">
       <thead>
-        <tr style="background:#0284c7; color:white; font-size:8.5px; text-transform:uppercase;">
-          <th style="padding:4px 5px; text-align:left; border:1px solid #0284c7; width:18%;">Jour</th>
-          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:18%;">Créneau 1</th>
-          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:18%;">Créneau 2</th>
-          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:12%;">Total</th>
-          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:12%;">Dont H.Supp</th>
-          <th style="padding:4px 5px; text-align:left; border:1px solid #0284c7; width:22%;">Remarque / Lieu</th>
+        <tr style="background:#0284c7; color:white; font-size:8px; text-transform:uppercase;">
+          <th style="padding:4px 5px; text-align:left; border:1px solid #0284c7; width:17%;">Jour</th>
+          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:16%;">Créneau 1</th>
+          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:16%;">Créneau 2</th>
+          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:11%;">Travail</th>
+          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:10%;">Trajet</th>
+          <th style="padding:4px 5px; text-align:center; border:1px solid #0284c7; width:11%;">H.Supp</th>
+          <th style="padding:4px 5px; text-align:left; border:1px solid #0284c7; width:19%;">Remarque / Lieu</th>
         </tr>
       </thead>
       <tbody id="pdfTableBody"></tbody>
@@ -260,6 +269,11 @@
           <input type="checkbox" id="pdfOptComments" checked class="w-4 h-4 text-blue-600 rounded">
           <span>📝 Afficher les remarques / lieux de travail</span>
         </label>
+
+        <label class="flex items-center gap-2 p-2 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100">
+          <input type="checkbox" id="pdfOptTravel" checked class="w-4 h-4 text-blue-600 rounded">
+          <span>🚗 Afficher le temps de trajet</span>
+        </label>
       </div>
 
       <div class="pt-3 border-t flex gap-2">
@@ -286,6 +300,17 @@
       <div>
         <label class="text-xs font-semibold text-slate-500 block mb-1">Solde CP Acquis de Départ (Jours)</label>
         <input type="number" id="cpBaseInput" value="25.0" step="0.5" onchange="saveCPBase(this.value)" class="w-full bg-slate-100 p-2.5 rounded-xl font-bold text-slate-800 border focus:outline-none">
+      </div>
+
+      <!-- Gestion des Trajets Enregistrés -->
+      <div class="pt-2 border-t">
+        <label class="text-xs font-bold text-slate-700 block mb-1.5">🚗 Trajets Enregistrés (Aller-Retour / Site)</label>
+        <div id="savedRoutesList" class="space-y-1.5 mb-2 max-h-32 overflow-y-auto"></div>
+        <div class="flex gap-1.5">
+          <input type="text" id="newRouteName" placeholder="Nom (ex: Épinal)" class="flex-1 bg-slate-100 text-xs p-2 rounded-lg border focus:outline-none">
+          <input type="number" id="newRouteMins" placeholder="Min" min="1" class="w-16 bg-slate-100 text-xs p-2 rounded-lg border focus:outline-none">
+          <button onclick="addSavedRoute()" class="bg-sky-600 text-white font-bold text-xs px-3 rounded-lg">+</button>
+        </div>
       </div>
 
       <div class="pt-2 border-t space-y-2">
@@ -322,8 +347,53 @@
     let currentDate = new Date();
     let logs = JSON.parse(localStorage.getItem('work_logs_v3') || '{}');
     let cpBaseAcquired = parseFloat(localStorage.getItem('cp_base_acquired') || '25.0');
+    const DEFAULT_ROUTES = [
+      { id: 'r_trane', name: 'Trane (Golbey) (0h45)', mins: 45 },
+      { id: 'r_leclerc_golbey', name: 'Leclerc (Golbey) (0h45)', mins: 45 },
+      { id: 'r_oi_gironcourt', name: 'OI (Gironcourt) (1h00)', mins: 60 },
+      { id: 'r_gnt_vittel', name: 'GNT (Vittel) (1h05)', mins: 65 },
+      { id: 'r_leclerc_neufchateau', name: 'Leclerc (Neufchâteau) (0h55)', mins: 55 },
+      { id: 'r_leclerc_raon', name: "Leclerc (Raon L'Étape) (0h55)", mins: 55 }
+    ];
+    let savedRoutes = JSON.parse(localStorage.getItem('gsf_saved_routes_v2') || JSON.stringify(DEFAULT_ROUTES));
 
     document.getElementById('cpBaseInput').value = cpBaseAcquired;
+
+    function saveRoutes() {
+      localStorage.setItem('gsf_saved_routes_v2', JSON.stringify(savedRoutes));
+      renderSavedRoutesSettings();
+      render();
+    }
+
+    function addSavedRoute() {
+      const nameInput = document.getElementById('newRouteName');
+      const minsInput = document.getElementById('newRouteMins');
+      const name = nameInput.value.trim();
+      const mins = parseInt(minsInput.value, 10);
+      if (!name || isNaN(mins) || mins <= 0) return;
+
+      savedRoutes.push({ id: 'r_' + Date.now(), name: `${name} (${formatMinutesToHours(mins)})`, mins });
+      nameInput.value = '';
+      minsInput.value = '';
+      saveRoutes();
+    }
+
+    function deleteSavedRoute(id) {
+      savedRoutes = savedRoutes.filter(r => r.id !== id);
+      saveRoutes();
+    }
+
+    function renderSavedRoutesSettings() {
+      const container = document.getElementById('savedRoutesList');
+      if (!container) return;
+      container.innerHTML = savedRoutes.map(r => `
+        <div class="flex justify-between items-center bg-slate-50 px-2.5 py-1.5 rounded-lg border text-xs">
+          <span class="font-medium text-slate-700">${r.name}</span>
+          <button onclick="deleteSavedRoute('${r.id}')" class="text-rose-500 font-bold px-1.5">✕</button>
+        </div>
+      `).join('');
+    }
+    renderSavedRoutesSettings();
 
     function saveCPBase(val) {
       cpBaseAcquired = parseFloat(val) || 25.0;
@@ -445,10 +515,27 @@
 
     function updateDayField(dateKey, field, value) {
       if (!logs[dateKey]) {
-        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false };
+        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travelType: 'NONE', travelMins: 0 };
       }
       logs[dateKey][field] = value;
       saveLogs();
+    }
+
+    function updateDayTravel(dateKey, type) {
+      if (!logs[dateKey]) {
+        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travelType: 'NONE', travelMins: 0 };
+      }
+      logs[dateKey].travelType = type;
+      if (type === 'NONE') {
+        logs[dateKey].travelMins = 0;
+      } else if (type === 'CUSTOM') {
+        if (!logs[dateKey].travelMins) logs[dateKey].travelMins = 0;
+      } else {
+        const route = savedRoutes.find(r => r.id === type);
+        logs[dateKey].travelMins = route ? route.mins : 0;
+      }
+      saveLogs();
+      render();
     }
 
     function setDayStatus(dateKey, status) {
@@ -498,7 +585,7 @@
         const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
         const dateKey = formatDateKey(year, month, day);
         const holidayName = holidays[dateKey];
-        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false };
+        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travelType: 'NONE', travelMins: 0 };
 
         const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
 
@@ -589,6 +676,27 @@
                 ${log.hasSecondShift ? '❌ Supprimer 2ème créneau' : '+ Ajouter horaire coupé (2ème créneau)'}
               </button>
             </div>
+
+            <!-- Temps de Trajet (Hors temps de travail) -->
+            <div class="mb-2 bg-sky-50/70 p-2 rounded-xl border border-sky-100">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-[11px] font-bold text-sky-900 whitespace-nowrap">🚗 Temps de trajet :</label>
+                <select onchange="updateDayTravel('${dateKey}', this.value)" class="flex-1 bg-white text-xs font-semibold text-slate-700 p-1.5 rounded-lg border border-sky-200 focus:outline-none">
+                  <option value="NONE" ${(!log.travelType || log.travelType === 'NONE') ? 'selected' : ''}>Aucun trajet</option>
+                  ${savedRoutes.map(r => `<option value="${r.id}" ${log.travelType === r.id ? 'selected' : ''}>${r.name}</option>`).join('')}
+                  <option value="CUSTOM" ${log.travelType === 'CUSTOM' ? 'selected' : ''}>✏️ Trajet libre (manuel)</option>
+                </select>
+              </div>
+              ${log.travelType === 'CUSTOM' ? `
+                <div class="mt-2 flex items-center gap-2">
+                  <span class="text-[10px] font-semibold text-sky-700">Durée réelle (en minutes) :</span>
+                  <input type="number" min="0" step="5" value="${log.travelMins || ''}" placeholder="ex: 40"
+                    onchange="updateDayField('${dateKey}', 'travelMins', parseInt(this.value, 10) || 0)"
+                    class="w-20 bg-white text-xs font-bold text-slate-800 p-1 rounded-lg border border-sky-200 focus:outline-none">
+                  <span class="text-[10px] text-slate-500">(${formatMinutesToHours(log.travelMins || 0)})</span>
+                </div>
+              ` : ''}
+            </div>
           ` : ''}
 
           <!-- Commentaire -->
@@ -615,6 +723,7 @@
       const holidays = getFrenchHolidays(year);
 
       let grandTotalMins = 0;
+      let grandTotalTravelMins = 0;
       let grandTotalNightMins = 0;
       let grandTotalExpectedMins = 0;
       let grandSundayMins = 0;
@@ -638,9 +747,10 @@
         const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
         const dateKey = formatDateKey(year, month, day);
         const holidayName = holidays[dateKey];
-        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false };
+        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travelType: 'NONE', travelMins: 0 };
 
         let dayTotalMins = 0;
+        let dayTravelMins = 0;
         let dayNightMins = 0;
         let dayForcedOvertimeMins = 0;
 
@@ -655,6 +765,7 @@
 
           dayTotalMins = shift1.totalMins + shift2.totalMins;
           dayNightMins = shift1.nightMins + shift2.nightMins;
+          dayTravelMins = parseInt(log.travelMins, 10) || 0;
 
           if (log.isForcedOvertime) {
             dayForcedOvertimeMins = dayTotalMins;
@@ -668,6 +779,7 @@
         }
 
         grandTotalMins += dayTotalMins;
+        grandTotalTravelMins += dayTravelMins;
         grandTotalNightMins += dayNightMins;
         grandForcedOvertimeMins += dayForcedOvertimeMins;
 
@@ -693,10 +805,11 @@
         // Mettre à jour le badge du jour
         const badgeEl = document.getElementById(`badge-hours-${dateKey}`);
         if (badgeEl && log.status === 'WORK') {
-          if (dayTotalMins > 0) {
+          if (dayTotalMins > 0 || dayTravelMins > 0) {
             let nightText = dayNightMins > 0 ? ` 🌙 ${formatMinutesToHours(dayNightMins)}` : '';
             let overtimeBadge = log.isForcedOvertime ? ` <span class="bg-purple-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">⚡ H.Supp 100%</span>` : '';
-            badgeEl.innerHTML = `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">${formatMinutesToHours(dayTotalMins)}${nightText}</span>${overtimeBadge}`;
+            let travelBadge = dayTravelMins > 0 ? ` <span class="bg-sky-100 text-sky-800 text-[9px] px-1.5 py-0.5 rounded font-bold">🚗 ${formatMinutesToHours(dayTravelMins)}</span>` : '';
+            badgeEl.innerHTML = `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">${formatMinutesToHours(dayTotalMins)}${nightText}</span>${overtimeBadge}${travelBadge}`;
           } else {
             badgeEl.innerHTML = '';
           }
@@ -797,6 +910,7 @@
 
       // Mise à jour de l'affichage mobile
       document.getElementById('totalWorked').innerText = formatMinutesToHours(grandTotalMins);
+      document.getElementById('totalTravelSummary').innerText = `🚗 Trajet : ${formatMinutesToHours(grandTotalTravelMins)} (hors travail)`;
       document.getElementById('totalOvertime').innerText = formatMinutesToHours(grandTotalCalculatedOvertimeMins);
       document.getElementById('totalOvertimeBonus').innerText = `+${overtimeBonus.toFixed(2)} € (+25%)`;
 
@@ -871,6 +985,7 @@
       const showSalary = document.getElementById('pdfOptSalary').checked;
       const showWeekly = document.getElementById('pdfOptWeekly').checked;
       const showComments = document.getElementById('pdfOptComments').checked;
+      const showTravel = document.getElementById('pdfOptTravel').checked;
 
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -885,30 +1000,81 @@
       document.getElementById('pdfSalarySection').style.display = showSalary ? 'grid' : 'none';
       document.getElementById('pdfWeeklySection').style.display = showWeekly ? 'block' : 'none';
 
-      // Remplir le détail Hebdomadaire PDF
+      // Remplir le détail Hebdomadaire PDF et regrouper les lignes par semaine
       const pdfWeeklyList = document.getElementById('pdfWeeklyList');
       pdfWeeklyList.innerHTML = '';
 
+      const pdfTableBody = document.getElementById('pdfTableBody');
+      pdfTableBody.innerHTML = '';
+
       let currentWeekMins = 0;
+      let currentWeekTravelMins = 0;
       let currentWeekForcedMins = 0;
       let weekNum = 1;
+      let currentWeekRowsHtml = '';
 
       for (let day = 1; day <= daysCount; day++) {
         const dateObj = new Date(year, month, day);
         const dayOfWeek = dateObj.getDay();
         const isSunday = (dayOfWeek === 0);
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
         const dateKey = formatDateKey(year, month, day);
-        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false };
+        const holidayName = holidays[dateKey];
+        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travelType: 'NONE', travelMins: 0 };
+
+        const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+
+        let shift1Text = '-';
+        let shift2Text = '-';
+        let dayTotalMins = 0;
+        let dayTravelMins = 0;
 
         if (log.status === 'CP') {
+          shift1Text = 'CONGÉ PAYÉ';
+          dayTotalMins = DAILY_TARGET_MINS;
           currentWeekMins += DAILY_TARGET_MINS;
+        } else if (log.status === 'AM') {
+          shift1Text = 'ARRÊT MALADIE';
+        } else if (log.status === 'OFF') {
+          shift1Text = 'REPOS';
         } else if (log.status === 'WORK') {
+          if (log.start1 && log.end1) shift1Text = `${log.start1} - ${log.end1}`;
+          if (log.start2 && log.end2) shift2Text = `${log.start2} - ${log.end2}`;
+
           const s1 = calculateShift(log.start1, log.end1);
           const s2 = calculateShift(log.start2, log.end2);
-          const dayMins = s1.totalMins + s2.totalMins;
-          currentWeekMins += dayMins;
-          if (log.isForcedOvertime) currentWeekForcedMins += dayMins;
+          dayTotalMins = s1.totalMins + s2.totalMins;
+          dayTravelMins = parseInt(log.travelMins, 10) || 0;
+
+          currentWeekMins += dayTotalMins;
+          currentWeekTravelMins += dayTravelMins;
+          if (log.isForcedOvertime) currentWeekForcedMins += dayTotalMins;
         }
+
+        let bgStyle = isWeekend || holidayName ? 'background-color: #f8fafc;' : '';
+        let labelExtra = holidayName ? ` (${holidayName})` : '';
+
+        let overtimeCell = '-';
+        if (log.status === 'WORK' && dayTotalMins > 0 && log.isForcedOvertime) {
+          overtimeCell = `<span class="pdf-overtime-tag">⚡ ${formatMinutesToHours(dayTotalMins)}</span>`;
+        }
+
+        let travelCell = '-';
+        if (showTravel && dayTravelMins > 0) {
+          travelCell = `<span class="pdf-travel-tag">${formatMinutesToHours(dayTravelMins)}</span>`;
+        }
+
+        currentWeekRowsHtml += `
+          <tr style="${bgStyle} border-bottom: 1px solid #e2e8f0;">
+            <td style="padding:2.5px 5px; font-weight:bold;">${dayName}${labelExtra}</td>
+            <td style="padding:2.5px 5px; text-align:center;">${shift1Text}</td>
+            <td style="padding:2.5px 5px; text-align:center;">${shift2Text}</td>
+            <td style="padding:2.5px 5px; text-align:center; font-weight:bold;">${dayTotalMins > 0 ? formatMinutesToHours(dayTotalMins) : '-'}</td>
+            <td style="padding:2.5px 5px; text-align:center;">${travelCell}</td>
+            <td style="padding:2.5px 5px; text-align:center;">${overtimeCell}</td>
+            <td style="padding:2.5px 5px; color:#475569;">${showComments ? (log.comment || '') : ''}</td>
+          </tr>
+        `;
 
         if (isSunday || day === daysCount) {
           const regularMins = currentWeekMins - currentWeekForcedMins;
@@ -923,67 +1089,30 @@
               ${otLabel}
             </div>
           `;
+
+          // En-tête de semaine dans le tableau PDF + lignes des jours de la semaine
+          const travelWeekSummary = (showTravel && currentWeekTravelMins > 0)
+            ? ` • <span style="color:#0369a1;">Trajet : ${formatMinutesToHours(currentWeekTravelMins)}</span>`
+            : '';
+          const otWeekSummary = totalWeekOvertime > 0
+            ? ` • <span style="color:#15803d;">H.Supp : +${formatMinutesToHours(totalWeekOvertime)}</span>`
+            : '';
+
+          pdfTableBody.innerHTML += `
+            <tr style="background-color:#e2e8f0; color:#0f172a; font-weight:800; font-size:8.5px;">
+              <td colspan="7" style="padding:3px 6px; border-top:1px solid #94a3b8; border-bottom:1px solid #94a3b8;">
+                📅 SEMAINE ${weekNum} — Travail : ${formatMinutesToHours(currentWeekMins)}${otWeekSummary}${travelWeekSummary}
+              </td>
+            </tr>
+            ${currentWeekRowsHtml}
+          `;
+
           weekNum++;
           currentWeekMins = 0;
+          currentWeekTravelMins = 0;
           currentWeekForcedMins = 0;
+          currentWeekRowsHtml = '';
         }
-      }
-
-      // Construction du tableau synthétique
-      const pdfTableBody = document.getElementById('pdfTableBody');
-      pdfTableBody.innerHTML = '';
-
-      for (let day = 1; day <= daysCount; day++) {
-        const dateObj = new Date(year, month, day);
-        const dayOfWeek = dateObj.getDay();
-        const isSunday = (dayOfWeek === 0);
-        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-        const dateKey = formatDateKey(year, month, day);
-        const holidayName = holidays[dateKey];
-        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false };
-
-        const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
-
-        let shift1Text = '-';
-        let shift2Text = '-';
-        let dayTotalMins = 0;
-
-        if (log.status === 'CP') {
-          shift1Text = 'CONGÉ PAYÉ';
-          dayTotalMins = DAILY_TARGET_MINS;
-        } else if (log.status === 'AM') {
-          shift1Text = 'ARRÊT MALADIE';
-        } else if (log.status === 'OFF') {
-          shift1Text = 'REPOS';
-        } else if (log.status === 'WORK') {
-          if (log.start1 && log.end1) shift1Text = `${log.start1} - ${log.end1}`;
-          if (log.start2 && log.end2) shift2Text = `${log.start2} - ${log.end2}`;
-
-          const s1 = calculateShift(log.start1, log.end1);
-          const s2 = calculateShift(log.start2, log.end2);
-          dayTotalMins = s1.totalMins + s2.totalMins;
-        }
-
-        let bgStyle = isWeekend || holidayName ? 'background-color: #f8fafc;' : '';
-        let labelExtra = holidayName ? ` (${holidayName})` : '';
-
-        let overtimeCell = '-';
-        if (log.status === 'WORK' && dayTotalMins > 0) {
-          if (log.isForcedOvertime) {
-            overtimeCell = `<span class="pdf-overtime-tag">⚡ ${formatMinutesToHours(dayTotalMins)}</span>`;
-          }
-        }
-
-        pdfTableBody.innerHTML += `
-          <tr style="${bgStyle} border-bottom: 1px solid #e2e8f0;">
-            <td style="padding:3px 5px; font-weight:bold;">${dayName}${labelExtra}</td>
-            <td style="padding:3px 5px; text-align:center;">${shift1Text}</td>
-            <td style="padding:3px 5px; text-align:center;">${shift2Text}</td>
-            <td style="padding:3px 5px; text-align:center; font-weight:bold;">${dayTotalMins > 0 ? formatMinutesToHours(dayTotalMins) : '-'}</td>
-            <td style="padding:3px 5px; text-align:center;">${overtimeCell}</td>
-            <td style="padding:3px 5px; color:#475569;">${showComments ? (log.comment || '') : ''}</td>
-          </tr>
-        `;
       }
 
       // Basculer en mode PDF pour le rendu
