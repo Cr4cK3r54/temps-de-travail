@@ -162,7 +162,7 @@
           <strong id="countCP" class="text-sm text-emerald-800">0 j</strong>
         </div>
         <div class="bg-emerald-100/80 p-2 rounded-xl border border-emerald-200">
-          <span class="text-[10px] text-emerald-800 font-bold block"> Solde CP Annuel</span>
+          <span class="text-[10px] text-emerald-800 font-bold block">Solde CP Annuel</span>
           <strong id="soldeCPAnnuel" class="text-sm text-emerald-900">25,0 j</strong>
         </div>
         <div class="bg-rose-50/60 p-2 rounded-xl">
@@ -222,6 +222,7 @@
       <strong style="font-size:10px; color:#6b21a8; display:block; margin-bottom:4px; text-transform:uppercase;">📊 Résumé Hebdomadaire (Base 35h / Semaine)</strong>
       <div id="pdfWeeklyList" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:6px; font-size:9px;"></div>
     </div>
+
     <!-- Tableau Synthétique Jours PDF (Regroupé par semaine) -->
     <table style="width:100%; border-collapse:collapse; font-size:8.5px; margin-bottom:10px;">
       <thead>
@@ -294,7 +295,7 @@
       
       <div>
         <label class="text-xs font-semibold text-slate-500 block mb-1">Taux Horaire Brut (€)</label>
-        <input type="number" id="hourlyRateInput" value="14.95" step="0.01" class="w-full bg-slate-100 p-2.5 rounded-xl font-bold text-slate-800 border focus:outline-none">
+        <input type="number" id="hourlyRateInput" value="14.95" step="0.01" onchange="updateCalculations()" class="w-full bg-slate-100 p-2.5 rounded-xl font-bold text-slate-800 border focus:outline-none">
       </div>
 
       <div>
@@ -515,54 +516,96 @@
 
     function updateDayField(dateKey, field, value) {
       if (!logs[dateKey]) {
-        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travelType: 'NONE', travelMins: 0 };
+        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
       }
       logs[dateKey][field] = value;
       saveLogs();
     }
 
-    function updateDayTravel(dateKey, type) {
-      if (!logs[dateKey]) {
-        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travelType: 'NONE', travelMins: 0 };
+    function getDayTravels(log) {
+      if (Array.isArray(log.travels)) return log.travels;
+      if (log.travelType && log.travelType !== 'NONE') {
+        return [{ type: log.travelType, mins: parseInt(log.travelMins, 10) || 0 }];
       }
-      logs[dateKey].travelType = type;
-      if (type === 'NONE') {
-        logs[dateKey].travelMins = 0;
-      } else if (type === 'CUSTOM') {
-        if (!logs[dateKey].travelMins) logs[dateKey].travelMins = 0;
+      return [];
+    }
+
+    function getDayTotalTravelMins(log) {
+      return getDayTravels(log).reduce((sum, t) => sum + (parseInt(t.mins, 10) || 0), 0);
+    }
+
+    function addDayTravel(dateKey) {
+      if (!logs[dateKey]) {
+        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
+      }
+      logs[dateKey].travels = getDayTravels(logs[dateKey]);
+      const defaultRoute = savedRoutes[0];
+      logs[dateKey].travels.push({
+        type: defaultRoute ? defaultRoute.id : 'CUSTOM',
+        mins: defaultRoute ? defaultRoute.mins : 0
+      });
+      saveLogs();
+      render();
+    }
+
+    function removeDayTravel(dateKey, index) {
+      if (!logs[dateKey]) return;
+      logs[dateKey].travels = getDayTravels(logs[dateKey]);
+      logs[dateKey].travels.splice(index, 1);
+      saveLogs();
+      render();
+    }
+
+    function updateDayTravelItemType(dateKey, index, type) {
+      if (!logs[dateKey]) return;
+      logs[dateKey].travels = getDayTravels(logs[dateKey]);
+      if (!logs[dateKey].travels[index]) return;
+      logs[dateKey].travels[index].type = type;
+      if (type === 'CUSTOM') {
+        logs[dateKey].travels[index].mins = logs[dateKey].travels[index].mins || 0;
       } else {
         const route = savedRoutes.find(r => r.id === type);
-        logs[dateKey].travelMins = route ? route.mins : 0;
+        logs[dateKey].travels[index].mins = route ? route.mins : 0;
       }
       saveLogs();
       render();
     }
 
+    function updateDayTravelItemMins(dateKey, index, mins) {
+      if (!logs[dateKey]) return;
+      logs[dateKey].travels = getDayTravels(logs[dateKey]);
+      if (!logs[dateKey].travels[index]) return;
+      logs[dateKey].travels[index].mins = parseInt(mins, 10) || 0;
+      saveLogs();
+      const labelEl = document.getElementById(`travel-custom-label-${dateKey}-${index}`);
+      if (labelEl) labelEl.innerText = `(${formatMinutesToHours(logs[dateKey].travels[index].mins)})`;
+    }
+
     function setDayStatus(dateKey, status) {
-      if (!logs[dateKey]) logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false };
+      if (!logs[dateKey]) {
+        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
+      }
       logs[dateKey].status = status;
       saveLogs();
       render();
     }
 
     function toggleForcedOvertime(dateKey) {
-      if (!logs[dateKey]) logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false };
+      if (!logs[dateKey]) {
+        logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
+      }
       logs[dateKey].isForcedOvertime = !logs[dateKey].isForcedOvertime;
       saveLogs();
       render();
     }
 
-    function toggleSecondShift(dateKey) {
-      if (!logs[dateKey]) logs[dateKey] = { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false };
-      if (logs[dateKey].hasSecondShift) {
-        logs[dateKey].hasSecondShift = false;
-        logs[dateKey].start2 = '';
-        logs[dateKey].end2 = '';
-      } else {
-        logs[dateKey].hasSecondShift = true;
+    function toggleShift2(dateKey) {
+      const container = document.getElementById(`shift2-${dateKey}`);
+      const btn = document.getElementById(`btn-shift2-${dateKey}`);
+      if (container) {
+        container.classList.toggle('hidden');
+        btn.innerText = container.classList.contains('hidden') ? '+ Créneau 2' : '− Masquer Créneau 2';
       }
-      saveLogs();
-      render();
     }
 
     function render() {
@@ -572,182 +615,176 @@
       const holidays = getFrenchHolidays(year);
       
       const monthName = currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-      const formattedMonthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-      document.getElementById('currentMonthLabel').innerText = formattedMonthLabel;
+      document.getElementById('currentMonthLabel').innerText = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
       const daysList = document.getElementById('daysList');
       daysList.innerHTML = '';
 
       for (let day = 1; day <= daysCount; day++) {
         const dateObj = new Date(year, month, day);
-        const dayOfWeek = dateObj.getDay(); // 0 = Dim, 6 = Sam
-        const isSunday = (dayOfWeek === 0);
-        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+        const dayOfWeek = dateObj.getDay();
+        const isSunday = dayOfWeek === 0;
+        const isSaturday = dayOfWeek === 6;
         const dateKey = formatDateKey(year, month, day);
         const holidayName = holidays[dateKey];
-        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travelType: 'NONE', travelMins: 0 };
+        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
+        const dayTravels = getDayTravels(log);
 
         const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+        const hasShift2 = Boolean(log.start2 || log.end2);
 
-        const dayCard = document.createElement('div');
-        dayCard.id = `card-${dateKey}`;
-        dayCard.className = `bg-white rounded-2xl p-3 shadow-sm border border-slate-200/80 ${isWeekend || holidayName ? 'bg-slate-50/70' : ''}`;
-
-        // Header du Jour
-        let statusBadges = '';
-        if (holidayName) {
-          statusBadges = `<span class="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full">🎉 ${holidayName} (+50%)</span>`;
-        } else if (log.status === 'CP') {
-          statusBadges = `<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">🏖️ CP (7h)</span>`;
-        } else if (log.status === 'AM') {
-          statusBadges = `<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full">🏥 Arrêt Maladie</span>`;
-        } else if (log.status === 'OFF') {
-          statusBadges = `<span class="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full">😴 Repos</span>`;
-        } else {
-          statusBadges = `<span id="badge-hours-${dateKey}" class="text-[11px] font-semibold"></span>`;
-        }
-
-        dayCard.innerHTML = `
-          <div class="flex justify-between items-center mb-2">
-            <div class="flex items-center gap-1.5">
-              <span class="font-bold text-sm text-slate-800 uppercase tracking-wide">${dayName}</span>
-              ${isSunday && !holidayName ? '<span class="text-[9px] bg-amber-100 text-amber-800 font-semibold px-1.5 py-0.5 rounded">Dim. (+20%)</span>' : ''}
+        const card = document.createElement('div');
+        card.className = `bg-white rounded-2xl p-3.5 shadow-sm border ${holidayName ? 'border-amber-300 bg-amber-50/10' : isSunday ? 'border-amber-200/80' : 'border-slate-200/80'}`;
+        
+        card.innerHTML = `
+          <!-- Top Row: Jour & Badges -->
+          <div class="flex justify-between items-center mb-2.5">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="font-bold text-sm capitalize ${isSunday ? 'text-amber-700' : isSaturday ? 'text-slate-600' : 'text-slate-800'}">
+                ${dayName}
+              </span>
+              ${holidayName ? `<span class="text-[10px] font-bold bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded-md">🎉 ${holidayName} (+50%)</span>` : ''}
+              ${isSunday && !holidayName ? '<span class="text-[10px] font-semibold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md">Dim +20%</span>' : ''}
             </div>
-            <div>${statusBadges}</div>
+            <div id="badges-${dateKey}" class="flex gap-1 items-center flex-wrap justify-end"></div>
           </div>
 
-          <!-- Selecteur de Statut -->
-          <div class="flex gap-1 mb-2">
-            <button onclick="setDayStatus('${dateKey}', 'WORK')" class="flex-1 py-1 text-[11px] font-semibold rounded-lg ${log.status === 'WORK' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}">Travail</button>
-            <button onclick="setDayStatus('${dateKey}', 'CP')" class="flex-1 py-1 text-[11px] font-semibold rounded-lg ${log.status === 'CP' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}">CP</button>
-            <button onclick="setDayStatus('${dateKey}', 'AM')" class="flex-1 py-1 text-[11px] font-semibold rounded-lg ${log.status === 'AM' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600'}">Maladie</button>
-            <button onclick="setDayStatus('${dateKey}', 'OFF')" class="flex-1 py-1 text-[11px] font-semibold rounded-lg ${log.status === 'OFF' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'}">Repos</button>
+          <!-- Sélecteur Statut Journée -->
+          <div class="grid grid-cols-4 gap-1 bg-slate-100 p-1 rounded-xl mb-2.5 text-[11px] font-semibold">
+            <button onclick="setDayStatus('${dateKey}', 'WORK')" 
+              class="py-1.5 rounded-lg transition ${log.status === 'WORK' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}">
+              💼 Travail
+            </button>
+            <button onclick="setDayStatus('${dateKey}', 'CP')" 
+              class="py-1.5 rounded-lg transition ${log.status === 'CP' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'}">
+              🏖️ CP (7h)
+            </button>
+            <button onclick="setDayStatus('${dateKey}', 'AM')" 
+              class="py-1.5 rounded-lg transition ${log.status === 'AM' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500'}">
+              🏥 Maladie
+            </button>
+            <button onclick="setDayStatus('${dateKey}', 'OFF')" 
+              class="py-1.5 rounded-lg transition ${log.status === 'OFF' ? 'bg-slate-600 text-white shadow-sm' : 'text-slate-500'}">
+              😴 Repos
+            </button>
           </div>
 
+          <!-- Inputs Heures (Visible uniquement si Travail) -->
           ${log.status === 'WORK' ? `
-            <!-- Option Journée 100% Heures Supp -->
-            <div class="mb-2 bg-purple-50 p-2 rounded-xl border border-purple-100 flex items-center justify-between">
-              <label for="overtime-${dateKey}" class="text-xs font-bold text-purple-900 cursor-pointer flex items-center gap-1.5">
-                ⚡ Journée 100% Heures Supp.
-              </label>
-              <input type="checkbox" id="overtime-${dateKey}" ${log.isForcedOvertime ? 'checked' : ''} 
-                onchange="toggleForcedOvertime('${dateKey}')" 
-                class="w-4 h-4 text-purple-600 rounded cursor-pointer">
-            </div>
-
             <!-- Créneau 1 -->
             <div class="grid grid-cols-2 gap-2 mb-2">
-              <div class="bg-slate-50 rounded-xl p-2 border border-slate-200">
-                <label class="text-[9px] font-bold text-slate-400 uppercase block">Prise de poste</label>
-                <input type="time" value="${log.start1 || ''}" 
-                  onchange="updateDayField('${dateKey}', 'start1', this.value)"
-                  class="bg-transparent text-sm font-bold text-slate-800 focus:outline-none w-full">
+              <div class="relative bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-200">
+                <label class="text-[10px] font-medium text-slate-400 block">Début 1</label>
+                <input type="time" value="${log.start1 || ''}" onchange="updateDayField('${dateKey}', 'start1', this.value)"
+                  class="w-full bg-transparent text-sm font-bold text-slate-800 focus:outline-none">
               </div>
-
-              <div class="bg-slate-50 rounded-xl p-2 border border-slate-200">
-                <label class="text-[9px] font-bold text-slate-400 uppercase block">Fin de poste</label>
-                <input type="time" value="${log.end1 || ''}" 
-                  onchange="updateDayField('${dateKey}', 'end1', this.value)"
-                  class="bg-transparent text-sm font-bold text-slate-800 focus:outline-none w-full">
+              <div class="relative bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-200">
+                <label class="text-[10px] font-medium text-slate-400 block">Fin 1</label>
+                <input type="time" value="${log.end1 || ''}" onchange="updateDayField('${dateKey}', 'end1', this.value)"
+                  class="w-full bg-transparent text-sm font-bold text-slate-800 focus:outline-none">
               </div>
             </div>
 
             <!-- Créneau 2 (Coupé) -->
-            ${log.hasSecondShift ? `
-              <div class="grid grid-cols-2 gap-2 mb-2 pt-1 border-t border-dashed">
-                <div class="bg-slate-50 rounded-xl p-2 border border-slate-200">
-                  <label class="text-[9px] font-bold text-indigo-500 uppercase block">Créneau 2 - Début</label>
-                  <input type="time" value="${log.start2 || ''}" 
-                    onchange="updateDayField('${dateKey}', 'start2', this.value)"
-                    class="bg-transparent text-sm font-bold text-slate-800 focus:outline-none w-full">
-                </div>
-
-                <div class="bg-slate-50 rounded-xl p-2 border border-slate-200">
-                  <label class="text-[9px] font-bold text-indigo-500 uppercase block">Créneau 2 - Fin</label>
-                  <input type="time" value="${log.end2 || ''}" 
-                    onchange="updateDayField('${dateKey}', 'end2', this.value)"
-                    class="bg-transparent text-sm font-bold text-slate-800 focus:outline-none w-full">
-                </div>
+            <div id="shift2-${dateKey}" class="${hasShift2 ? '' : 'hidden'} grid grid-cols-2 gap-2 mb-2 pt-1 border-t border-dashed border-slate-200">
+              <div class="relative bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-200">
+                <label class="text-[10px] font-medium text-slate-400 block">Début 2 (Coupé)</label>
+                <input type="time" value="${log.start2 || ''}" onchange="updateDayField('${dateKey}', 'start2', this.value)"
+                  class="w-full bg-transparent text-sm font-bold text-slate-800 focus:outline-none">
               </div>
-            ` : ''}
+              <div class="relative bg-slate-50 rounded-xl px-2.5 py-1.5 border border-slate-200">
+                <label class="text-[10px] font-medium text-slate-400 block">Fin 2 (Coupé)</label>
+                <input type="time" value="${log.end2 || ''}" onchange="updateDayField('${dateKey}', 'end2', this.value)"
+                  class="w-full bg-transparent text-sm font-bold text-slate-800 focus:outline-none">
+              </div>
+            </div>
 
-            <div class="flex justify-between items-center mb-2">
-              <button onclick="toggleSecondShift('${dateKey}')" class="text-[11px] text-blue-600 font-semibold hover:underline">
-                ${log.hasSecondShift ? '❌ Supprimer 2ème créneau' : '+ Ajouter horaire coupé (2ème créneau)'}
+            <!-- Actions: Bouton Créneau 2 + Option 100% Heures Supp -->
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-2 pt-1">
+              <button id="btn-shift2-${dateKey}" onclick="toggleShift2('${dateKey}')" 
+                class="text-[11px] font-semibold text-blue-600 py-1 px-2 rounded-lg bg-blue-50/70 hover:bg-blue-100">
+                ${hasShift2 ? '− Masquer Créneau 2' : '+ Créneau 2'}
+              </button>
+
+              <button onclick="toggleForcedOvertime('${dateKey}')"
+                class="text-[11px] font-bold py-1 px-2.5 rounded-lg border transition flex items-center gap-1 ${log.isForcedOvertime ? 'bg-purple-600 text-white border-purple-700 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}">
+                <span>${log.isForcedOvertime ? '⚡ 100% H.Supp ACTIVÉ' : '⚡ Forcer 100% H.Supp'}</span>
               </button>
             </div>
 
-            <!-- Temps de Trajet (Hors temps de travail) -->
+            <!-- Temps de Trajet Multiple (Hors temps de travail) -->
             <div class="mb-2 bg-sky-50/70 p-2 rounded-xl border border-sky-100">
-              <div class="flex items-center justify-between gap-2">
-                <label class="text-[11px] font-bold text-sky-900 whitespace-nowrap">🚗 Temps de trajet :</label>
-                <select onchange="updateDayTravel('${dateKey}', this.value)" class="flex-1 bg-white text-xs font-semibold text-slate-700 p-1.5 rounded-lg border border-sky-200 focus:outline-none">
-                  <option value="NONE" ${(!log.travelType || log.travelType === 'NONE') ? 'selected' : ''}>Aucun trajet</option>
-                  ${savedRoutes.map(r => `<option value="${r.id}" ${log.travelType === r.id ? 'selected' : ''}>${r.name}</option>`).join('')}
-                  <option value="CUSTOM" ${log.travelType === 'CUSTOM' ? 'selected' : ''}>✏️ Trajet libre (manuel)</option>
-                </select>
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-sky-900">🚗 Temps de trajet (${dayTravels.length}) :</span>
+                <button onclick="addDayTravel('${dateKey}')" class="bg-sky-600 active:bg-sky-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
+                  + Ajouter trajet
+                </button>
               </div>
-              ${log.travelType === 'CUSTOM' ? `
-                <div class="mt-2 flex items-center gap-2">
-                  <span class="text-[10px] font-semibold text-sky-700">Durée réelle (en minutes) :</span>
-                  <input type="number" min="0" step="5" value="${log.travelMins || ''}" placeholder="ex: 40"
-                    onchange="updateDayField('${dateKey}', 'travelMins', parseInt(this.value, 10) || 0)"
-                    class="w-20 bg-white text-xs font-bold text-slate-800 p-1 rounded-lg border border-sky-200 focus:outline-none">
-                  <span class="text-[10px] text-slate-500">(${formatMinutesToHours(log.travelMins || 0)})</span>
+              ${dayTravels.length > 0 ? `
+                <div class="mt-2 space-y-1.5">
+                  ${dayTravels.map((t, idx) => `
+                    <div class="bg-white p-1.5 rounded-lg border border-sky-200">
+                      <div class="flex items-center gap-1.5">
+                        <select onchange="updateDayTravelItemType('${dateKey}', ${idx}, this.value)" class="flex-1 bg-slate-50 text-xs font-semibold text-slate-700 p-1.5 rounded-lg border border-slate-200 focus:outline-none">
+                          ${savedRoutes.map(r => `<option value="${r.id}" ${t.type === r.id ? 'selected' : ''}>${r.name}</option>`).join('')}
+                          <option value="CUSTOM" ${t.type === 'CUSTOM' ? 'selected' : ''}>✏️ Trajet libre (manuel)</option>
+                        </select>
+                        <button onclick="removeDayTravel('${dateKey}', ${idx})" class="text-rose-500 font-bold text-xs px-2 py-1 rounded-lg bg-rose-50 active:bg-rose-100" title="Supprimer ce trajet">✕</button>
+                      </div>
+                      ${t.type === 'CUSTOM' ? `
+                        <div class="mt-1.5 flex items-center gap-2 pl-1">
+                          <span class="text-[10px] font-semibold text-sky-700">Durée (min) :</span>
+                          <input type="number" min="0" step="5" value="${t.mins || ''}" placeholder="ex: 40"
+                            onchange="updateDayTravelItemMins('${dateKey}', ${idx}, this.value)"
+                            class="w-20 bg-slate-50 text-xs font-bold text-slate-800 p-1 rounded-lg border border-sky-200 focus:outline-none">
+                          <span id="travel-custom-label-${dateKey}-${idx}" class="text-[10px] text-slate-500">(${formatMinutesToHours(t.mins || 0)})</span>
+                        </div>
+                      ` : ''}
+                    </div>
+                  `).join('')}
                 </div>
               ` : ''}
             </div>
           ` : ''}
 
           <!-- Commentaire -->
-          <div>
-            <input type="text" value="${log.comment || ''}" placeholder="Entreprise (ex: GSF), ville, note..." 
-              onchange="updateDayField('${dateKey}', 'comment', this.value)"
-              class="bg-slate-50 text-xs text-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 w-full focus:bg-white focus:outline-none transition-all">
-          </div>
+          <input type="text" value="${log.comment || ''}" placeholder="Site, ville, entreprise..." 
+            onchange="updateDayField('${dateKey}', 'comment', this.value)"
+            class="w-full bg-slate-50/70 text-xs font-medium text-slate-700 px-3 py-2 rounded-xl border border-slate-200/80 focus:outline-none focus:border-blue-500">
         `;
-
-        daysList.appendChild(dayCard);
+        daysList.appendChild(card);
       }
 
       updateCalculations();
     }
 
-    /**
-     * Recalcule l'ensemble des totaux, du suivi hebdomadaire et de la paie
-     */
     function updateCalculations() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
       const daysCount = getDaysInMonth(year, month);
       const holidays = getFrenchHolidays(year);
+      const hourlyRate = parseFloat(document.getElementById('hourlyRateInput').value) || BASE_HOURLY_RATE;
 
-      let grandTotalMins = 0;
-      let grandTotalTravelMins = 0;
-      let grandTotalNightMins = 0;
-      let grandTotalExpectedMins = 0;
-      let grandSundayMins = 0;
-      let grandHolidayMins = 0;
-      let grandForcedOvertimeMins = 0;
+      let totalWorkedMins = 0;
+      let totalTravelMins = 0;
+      let totalNightMins = 0;
+      let totalSundayMins = 0;
+      let totalHolidayMins = 0;
+      let forcedOvertimeMins = 0;
       let countCP = 0;
       let countAM = 0;
 
-      const hourlyRate = parseFloat(document.getElementById('hourlyRateInput')?.value || BASE_HOURLY_RATE);
-
-      // Structure pour le bilan hebdomadaire (Lundi à Dimanche)
-      const weeklyTotals = [];
-      let currentWeekMins = 0;
-      let currentWeekForcedOvertimeMins = 0;
-      let currentWeekNumber = 1;
+      // Suivi hebdomadaire (Lundi -> Dimanche)
+      let weeks = [];
+      let currentWeek = { num: 1, mins: 0, forcedOvertimeMins: 0, travelMins: 0, startDay: 1, endDay: 1 };
 
       for (let day = 1; day <= daysCount; day++) {
         const dateObj = new Date(year, month, day);
         const dayOfWeek = dateObj.getDay(); // 0 = Dimanche, 1 = Lundi
-        const isSunday = (dayOfWeek === 0);
-        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+        const isSunday = dayOfWeek === 0;
         const dateKey = formatDateKey(year, month, day);
         const holidayName = holidays[dateKey];
-        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travelType: 'NONE', travelMins: 0 };
+        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
 
         let dayTotalMins = 0;
         let dayTravelMins = 0;
@@ -765,376 +802,448 @@
 
           dayTotalMins = shift1.totalMins + shift2.totalMins;
           dayNightMins = shift1.nightMins + shift2.nightMins;
-          dayTravelMins = parseInt(log.travelMins, 10) || 0;
+          dayTravelMins = getDayTotalTravelMins(log);
 
           if (log.isForcedOvertime) {
             dayForcedOvertimeMins = dayTotalMins;
+            forcedOvertimeMins += dayTotalMins;
           }
 
-          if (holidayName) {
-            grandHolidayMins += dayTotalMins;
-          } else if (isSunday) {
-            grandSundayMins += dayTotalMins;
+          if (dayTotalMins > 0) {
+            if (holidayName) {
+              totalHolidayMins += dayTotalMins;
+            } else if (isSunday) {
+              totalSundayMins += dayTotalMins;
+            }
           }
         }
 
-        grandTotalMins += dayTotalMins;
-        grandTotalTravelMins += dayTravelMins;
-        grandTotalNightMins += dayNightMins;
-        grandForcedOvertimeMins += dayForcedOvertimeMins;
+        totalWorkedMins += dayTotalMins;
+        totalTravelMins += dayTravelMins;
+        totalNightMins += dayNightMins;
 
-        currentWeekMins += dayTotalMins;
-        currentWeekForcedOvertimeMins += dayForcedOvertimeMins;
+        // Mise à jour semaine en cours
+        currentWeek.mins += dayTotalMins;
+        currentWeek.forcedOvertimeMins += dayForcedOvertimeMins;
+        currentWeek.travelMins += dayTravelMins;
+        currentWeek.endDay = day;
 
-        if (!isWeekend && log.status !== 'AM') {
-          grandTotalExpectedMins += DAILY_TARGET_MINS;
+        if (dayOfWeek === 0 || day === daysCount) {
+          weeks.push({ ...currentWeek });
+          currentWeek = { num: currentWeek.num + 1, mins: 0, forcedOvertimeMins: 0, travelMins: 0, startDay: day + 1, endDay: day + 1 };
         }
 
-        // Fin de semaine (Dimanche ou dernier jour du mois)
-        if (isSunday || day === daysCount) {
-          weeklyTotals.push({ 
-            weekNum: currentWeekNumber, 
-            totalMins: currentWeekMins,
-            forcedOvertimeMins: currentWeekForcedOvertimeMins
-          });
-          currentWeekNumber++;
-          currentWeekMins = 0;
-          currentWeekForcedOvertimeMins = 0;
-        }
+        // Mise à jour des badges sur la carte du jour
+        const badgesContainer = document.getElementById(`badges-${dateKey}`);
+        if (badgesContainer) {
+          let badgesHtml = '';
+          if (log.status === 'CP') {
+            badgesHtml = `<span class="text-[11px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">CP • 7h00</span>`;
+          } else if (log.status === 'AM') {
+            badgesHtml = `<span class="text-[11px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Arrêt Maladie</span>`;
+          } else if (dayTotalMins > 0 || dayTravelMins > 0) {
+            if (dayTotalMins > 0) {
+              badgesHtml += `<span class="text-[11px] font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded-full">${formatMinutesToHours(dayTotalMins)}</span>`;
+            }
+            
+            if (log.isForcedOvertime && dayTotalMins > 0) {
+              badgesHtml += `<span class="text-[11px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">⚡ +${formatMinutesToHours(dayTotalMins)} H.Supp</span>`;
+            } else if (dayTotalMins > DAILY_TARGET_MINS) {
+              const extra = dayTotalMins - DAILY_TARGET_MINS;
+              badgesHtml += `<span class="text-[11px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">+${formatMinutesToHours(extra)}</span>`;
+            }
 
-        // Mettre à jour le badge du jour
-        const badgeEl = document.getElementById(`badge-hours-${dateKey}`);
-        if (badgeEl && log.status === 'WORK') {
-          if (dayTotalMins > 0 || dayTravelMins > 0) {
-            let nightText = dayNightMins > 0 ? ` 🌙 ${formatMinutesToHours(dayNightMins)}` : '';
-            let overtimeBadge = log.isForcedOvertime ? ` <span class="bg-purple-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">⚡ H.Supp 100%</span>` : '';
-            let travelBadge = dayTravelMins > 0 ? ` <span class="bg-sky-100 text-sky-800 text-[9px] px-1.5 py-0.5 rounded font-bold">🚗 ${formatMinutesToHours(dayTravelMins)}</span>` : '';
-            badgeEl.innerHTML = `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">${formatMinutesToHours(dayTotalMins)}${nightText}</span>${overtimeBadge}${travelBadge}`;
-          } else {
-            badgeEl.innerHTML = '';
+            if (dayNightMins > 0) {
+              badgesHtml += `<span class="text-[11px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">🌙 ${formatMinutesToHours(dayNightMins)}</span>`;
+            }
+
+            if (dayTravelMins > 0) {
+              badgesHtml += `<span class="text-[11px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full">🚗 ${formatMinutesToHours(dayTravelMins)}</span>`;
+            }
           }
+          badgesContainer.innerHTML = badgesHtml;
         }
       }
 
-      // Affichage Bilan Hebdomadaire
-      const weeklyBreakdownEl = document.getElementById('weeklyBreakdown');
-      weeklyBreakdownEl.innerHTML = '';
-      
-      let grandTotalCalculatedOvertimeMins = 0;
+      // Calcul des heures supplémentaires mensuelles :
+      // Max entre (Heures au-delà de la base 151,67h) et (Heures forcées manuellement en H.Supp)
+      const baseMins = Math.round(MONTHLY_BASE_HOURS * 60); // 151h40 = 9100 min
+      const monthlyExcessMins = Math.max(0, totalWorkedMins - baseMins);
+      const totalEffectiveOvertimeMins = Math.max(monthlyExcessMins, forcedOvertimeMins);
 
-      weeklyTotals.forEach(w => {
-        // Heures régulières travaillées (hors journées 100% H.Supp forcées)
-        const regularMins = w.totalMins - w.forcedOvertimeMins;
-        const weeklyExcessMins = Math.max(0, regularMins - (35 * 60));
-        const weekOvertimeTotal = w.forcedOvertimeMins + weeklyExcessMins;
-        
-        grandTotalCalculatedOvertimeMins += weekOvertimeTotal;
+      // Solde net par rapport au contrat mensuel (151,67h)
+      const netBalanceMins = totalWorkedMins - baseMins;
 
-        let statusBadge = '';
-        if (weekOvertimeTotal > 0) {
-          statusBadge = `<span class="text-purple-700 font-bold bg-purple-100 px-2 py-0.5 rounded">⚡ +${formatMinutesToHours(weekOvertimeTotal)} H.Supp</span>`;
-        } else if (regularMins < (35 * 60)) {
-          const missingMins = (35 * 60) - regularMins;
-          statusBadge = `<span class="text-slate-400">-${formatMinutesToHours(missingMins)}</span>`;
-        } else {
-          statusBadge = `<span class="text-blue-600 font-bold">35h00 pile</span>`;
-        }
+      const balanceBanner = document.getElementById('monthlyBalanceBanner');
+      const balanceTitle = document.getElementById('monthlyBalanceTitle');
+      const balanceSubtitle = document.getElementById('monthlyBalanceSubtitle');
+      const balanceBadge = document.getElementById('monthlyBalanceBadge');
 
-        weeklyBreakdownEl.innerHTML += `
-          <div class="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
-            <span class="font-medium text-slate-600">Semaine ${w.weekNum}</span>
-            <div class="flex gap-2 text-xs items-center">
-              <strong class="text-slate-800">${formatMinutesToHours(w.totalMins)}</strong>
-              ${statusBadge}
+      if (totalWorkedMins === 0) {
+        balanceBanner.className = 'mb-3 p-3 rounded-xl text-xs flex justify-between items-center bg-slate-100 text-slate-700 border border-slate-200';
+        balanceTitle.innerText = 'Aucune heure enregistrée ce mois-ci';
+        balanceSubtitle.innerText = `Base contractuelle : ${formatMinutesToHours(baseMins)} (151,67h)`;
+        balanceBadge.className = 'text-xs font-extrabold px-2.5 py-1 rounded-lg bg-slate-200 text-slate-800';
+        balanceBadge.innerText = '0h00';
+      } else if (netBalanceMins > 0) {
+        balanceBanner.className = 'mb-3 p-3 rounded-xl text-xs flex justify-between items-center bg-emerald-50 text-emerald-900 border border-emerald-200';
+        balanceTitle.innerText = '✅ Surplus d\'heures ce mois-ci !';
+        balanceSubtitle.innerText = `Au-dessus de la base contrat (${formatMinutesToHours(baseMins)})`;
+        balanceBadge.className = 'text-xs font-extrabold px-2.5 py-1 rounded-lg bg-emerald-200 text-emerald-900';
+        balanceBadge.innerText = `+${formatMinutesToHours(netBalanceMins)}`;
+      } else if (netBalanceMins < 0) {
+        balanceBanner.className = 'mb-3 p-3 rounded-xl text-xs flex justify-between items-center bg-amber-50 text-amber-900 border border-amber-200';
+        balanceTitle.innerText = '⚠️ Heures manquantes sur le mois';
+        balanceSubtitle.innerText = `Reste à effectuer pour atteindre ${formatMinutesToHours(baseMins)}`;
+        balanceBadge.className = 'text-xs font-extrabold px-2.5 py-1 rounded-lg bg-amber-200 text-amber-900';
+        balanceBadge.innerText = `${formatMinutesToHours(netBalanceMins)}`;
+      } else {
+        balanceBanner.className = 'mb-3 p-3 rounded-xl text-xs flex justify-between items-center bg-blue-50 text-blue-900 border border-blue-200';
+        balanceTitle.innerText = '🎯 Pile aux heures contractuelles !';
+        balanceSubtitle.innerText = `Vous êtes exactement à ${formatMinutesToHours(baseMins)} ce mois-ci`;
+        balanceBadge.className = 'text-xs font-extrabold px-2.5 py-1 rounded-lg bg-blue-200 text-blue-900';
+        balanceBadge.innerText = '0h00';
+      }
+
+      // Affichage du bilan hebdomadaire (35h / semaine)
+      const weeklyDiv = document.getElementById('weeklyBreakdown');
+      weeklyDiv.innerHTML = weeks.map(w => {
+        const weeklyExtra = Math.max(0, w.mins - (35 * 60));
+        const effectiveWeekOvertime = Math.max(weeklyExtra, w.forcedOvertimeMins);
+        const isOver = effectiveWeekOvertime > 0;
+        return `
+          <div class="flex justify-between items-center bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
+            <div>
+              <span class="font-semibold text-slate-700">Sem. ${w.num} <span class="text-[10px] text-slate-400">(${w.startDay} au ${w.endDay})</span></span>
+              ${w.travelMins > 0 ? `<span class="text-[10px] text-sky-600 font-semibold block">🚗 Trajet : ${formatMinutesToHours(w.travelMins)}</span>` : ''}
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-800">${formatMinutesToHours(w.mins)}</span>
+              ${isOver ? `<span class="text-[10px] font-bold bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">+${formatMinutesToHours(effectiveWeekOvertime)} H.Supp</span>` : `<span class="text-[10px] text-slate-400">/ 35h00</span>`}
             </div>
           </div>
         `;
-      });
+      }).join('');
 
-      // Bilan Mensuel Global (Pile 35h, Manque d'heures, ou Surplus)
-      const monthlyBalanceBanner = document.getElementById('monthlyBalanceBanner');
-      const monthlyBalanceTitle = document.getElementById('monthlyBalanceTitle');
-      const monthlyBalanceSubtitle = document.getElementById('monthlyBalanceSubtitle');
-      const monthlyBalanceBadge = document.getElementById('monthlyBalanceBadge');
+      // Calculs des heures & montants financiers (Contrat GSF)
+      const workedHours = totalWorkedMins / 60;
+      const nightHours = totalNightMins / 60;
+      const sundayHours = totalSundayMins / 60;
+      const holidayHours = totalHolidayMins / 60;
+      const overtimeHours = totalEffectiveOvertimeMins / 60;
 
-      // Base contractuelle mensuelle en minutes (151,67h ≈ 151h 40min = 9100 min)
-      const targetMonthlyMins = Math.round(MONTHLY_BASE_HOURS * 60);
-      const netBalanceMins = grandTotalMins - targetMonthlyMins;
-
-      if (netBalanceMins === 0) {
-        monthlyBalanceBanner.className = 'mb-3 p-3 rounded-xl text-xs flex justify-between items-center bg-blue-50 text-blue-900 border border-blue-200';
-        monthlyBalanceTitle.innerText = '🎯 Solde du mois : Base 151,67h atteinte';
-        monthlyBalanceSubtitle.innerText = 'Vous avez réalisé exactement les heures de votre contrat.';
-        monthlyBalanceBadge.className = 'text-xs font-extrabold px-2.5 py-1 rounded-lg bg-blue-600 text-white';
-        monthlyBalanceBadge.innerText = '151h40 pile';
-      } else if (netBalanceMins < 0) {
-        monthlyBalanceBanner.className = 'mb-3 p-3 rounded-xl text-xs flex justify-between items-center bg-rose-50 text-rose-900 border border-rose-200';
-        monthlyBalanceTitle.innerText = '⚠️ Solde du mois : Heures à effectuer';
-        monthlyBalanceSubtitle.innerText = `Reste ${formatMinutesToHours(Math.abs(netBalanceMins))} pour atteindre la base contrat de 151,67h.`;
-        monthlyBalanceBadge.className = 'text-xs font-extrabold px-2.5 py-1 rounded-lg bg-rose-600 text-white';
-        monthlyBalanceBadge.innerText = `${formatMinutesToHours(netBalanceMins)}`;
+      let baseGross = 0;
+      if (countAM > 0) {
+        baseGross = workedHours * hourlyRate;
       } else {
-        monthlyBalanceBanner.className = 'mb-3 p-3 rounded-xl text-xs flex justify-between items-center bg-purple-50 text-purple-900 border border-purple-200';
-        monthlyBalanceTitle.innerText = '⚡ Solde du mois : Heures supplémentaires / Surplus';
-        monthlyBalanceSubtitle.innerText = `Vous dépassez le forfait contractuel mensuel.`;
-        monthlyBalanceBadge.className = 'text-xs font-extrabold px-2.5 py-1 rounded-lg bg-purple-600 text-white';
-        monthlyBalanceBadge.innerText = `+${formatMinutesToHours(netBalanceMins)}`;
+        const effectiveHoursForBase = Math.max(MONTHLY_BASE_HOURS, workedHours);
+        baseGross = effectiveHoursForBase * hourlyRate;
       }
 
-      // Calculs Financiers GSF
-      const baseMonthlyGross = MONTHLY_BASE_HOURS * hourlyRate;
-      
-      // Majoration Nuit (+20%)
-      const nightBonusRate = hourlyRate * 0.20;
-      const totalNightBonus = (grandTotalNightMins / 60) * nightBonusRate;
+      const nightBonus = nightHours * (hourlyRate * 0.20);
+      const sundayBonus = sundayHours * (hourlyRate * 0.20);
+      const holidayBonus = holidayHours * (hourlyRate * 0.50);
+      const overtimeBonus = overtimeHours * (hourlyRate * 0.25);
 
-      // Majoration Dimanche (+20%)
-      const sundayBonusRate = hourlyRate * 0.20;
-      const totalSundayBonus = (grandSundayMins / 60) * sundayBonusRate;
+      const totalGross = baseGross + nightBonus + sundayBonus + holidayBonus + overtimeBonus;
+      const totalNet = totalGross * 0.78;
 
-      // Majoration Férié (+50%)
-      const holidayBonusRate = hourlyRate * 0.50;
-      const totalHolidayBonus = (grandHolidayMins / 60) * holidayBonusRate;
+      // Compteur annuel CP
+      let totalCPTakenAllTime = 0;
+      Object.values(logs).forEach(entry => {
+        if (entry && entry.status === 'CP') totalCPTakenAllTime++;
+      });
+      const remainingCP = Math.max(0, cpBaseAcquired - totalCPTakenAllTime);
 
-      // Majoration Heures Supplémentaires (+25%)
-      const overtimeBonus = (grandTotalCalculatedOvertimeMins / 60) * (hourlyRate * 1.25);
+      // Mise à jour interface principale
+      document.getElementById('salaryNet').innerText = `${totalNet.toFixed(2).replace('.', ',')} €`;
+      document.getElementById('salaryGross').innerText = `${totalGross.toFixed(2).replace('.', ',')} €`;
 
-      const totalSundayHolidayBonus = totalSundayBonus + totalHolidayBonus;
-      const totalSundayHolidayMins = grandSundayMins + grandHolidayMins;
+      document.getElementById('totalWorked').innerText = formatMinutesToHours(totalWorkedMins);
+      document.getElementById('totalTravelSummary').innerText = `🚗 Trajet : ${formatMinutesToHours(totalTravelMins)}`;
+      document.getElementById('totalOvertime').innerText = formatMinutesToHours(totalEffectiveOvertimeMins);
+      document.getElementById('totalOvertimeBonus').innerText = `+${overtimeBonus.toFixed(2).replace('.', ',')} € (+25%)`;
 
-      const totalGross = baseMonthlyGross + totalNightBonus + totalSundayHolidayBonus + overtimeBonus;
-      const totalNetEstimated = totalGross * 0.78;
+      document.getElementById('totalNight').innerText = formatMinutesToHours(totalNightMins);
+      document.getElementById('totalNightBonus').innerText = `+${nightBonus.toFixed(2).replace('.', ',')} €`;
 
-      // Solde CP Annuel
-      const soldeRestantCP = cpBaseAcquired - countCP;
-
-      // Mise à jour de l'affichage mobile
-      document.getElementById('totalWorked').innerText = formatMinutesToHours(grandTotalMins);
-      document.getElementById('totalTravelSummary').innerText = `🚗 Trajet : ${formatMinutesToHours(grandTotalTravelMins)} (hors travail)`;
-      document.getElementById('totalOvertime').innerText = formatMinutesToHours(grandTotalCalculatedOvertimeMins);
-      document.getElementById('totalOvertimeBonus').innerText = `+${overtimeBonus.toFixed(2)} € (+25%)`;
-
-      document.getElementById('totalNight').innerText = formatMinutesToHours(grandTotalNightMins);
-      document.getElementById('totalNightBonus').innerText = `+${totalNightBonus.toFixed(2)} €`;
-      
-      document.getElementById('totalSundayHoliday').innerText = formatMinutesToHours(totalSundayHolidayMins);
-      document.getElementById('totalSundayHolidayBonus').innerText = `+${totalSundayHolidayBonus.toFixed(2)} €`;
+      const sunHolMins = totalSundayMins + totalHolidayMins;
+      const sunHolBonus = sundayBonus + holidayBonus;
+      document.getElementById('totalSundayHoliday').innerText = formatMinutesToHours(sunHolMins);
+      document.getElementById('totalSundayHolidayBonus').innerText = `+${sunHolBonus.toFixed(2).replace('.', ',')} €`;
 
       document.getElementById('countCP').innerText = `${countCP} j`;
-      document.getElementById('soldeCPAnnuel').innerText = `${soldeRestantCP.toFixed(1)} j`;
+      document.getElementById('soldeCPAnnuel').innerText = `${remainingCP.toFixed(1).replace('.', ',')} j`;
       document.getElementById('countAM').innerText = `${countAM} j`;
 
-      document.getElementById('salaryGross').innerText = `${totalGross.toFixed(2)} €`;
-      document.getElementById('salaryNet').innerText = `${totalNetEstimated.toFixed(2)} €`;
-
-      // Mise à jour de la zone invisible dédiée au PDF
-      document.getElementById('pdfTotalWorked').innerText = formatMinutesToHours(grandTotalMins);
-      document.getElementById('pdfTotalOvertime').innerText = formatMinutesToHours(grandTotalCalculatedOvertimeMins);
-      document.getElementById('pdfTotalNightBonus').innerText = formatMinutesToHours(grandTotalNightMins + totalSundayHolidayMins);
-      document.getElementById('pdfSalaryNet').innerText = `${totalNetEstimated.toFixed(2)} €`;
+      // Préparation données PDF
+      preparePDFView(
+        year, month, daysCount, holidays,
+        totalWorkedMins, totalTravelMins, totalEffectiveOvertimeMins,
+        totalNightMins + sunHolMins, totalNet, weeks
+      );
     }
 
-    function toggleSettingsModal() {
-      document.getElementById('settingsModal').classList.toggle('hidden');
+    function preparePDFView(year, month, daysCount, holidays, totalWorkedMins, totalTravelMins, totalOvertimeMins, totalMajoratedMins, totalNet, weeks) {
+      const monthName = currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      document.getElementById('pdfMonthHeader').innerText = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+      document.getElementById('pdfTotalWorked').innerText = `${formatMinutesToHours(totalWorkedMins)} (Trajet: ${formatMinutesToHours(totalTravelMins)})`;
+      document.getElementById('pdfTotalOvertime').innerText = formatMinutesToHours(totalOvertimeMins);
+      document.getElementById('pdfTotalNightBonus').innerText = formatMinutesToHours(totalMajoratedMins);
+      document.getElementById('pdfSalaryNet').innerText = `${totalNet.toFixed(2).replace('.', ',')} €`;
+      document.getElementById('pdfPrintDate').innerText = new Date().toLocaleDateString('fr-FR');
+
+      // Remplissage du résumé hebdomadaire dans le PDF
+      const pdfWeeklyList = document.getElementById('pdfWeeklyList');
+      pdfWeeklyList.innerHTML = weeks.map(w => {
+        const weeklyExtra = Math.max(0, w.mins - (35 * 60));
+        const effectiveWeekOvertime = Math.max(weeklyExtra, w.forcedOvertimeMins);
+        return `
+          <div style="background:white; padding:4px 6px; border-radius:4px; border:1px solid #d8b4fe;">
+            <strong style="display:block; color:#581c87;">Semaine ${w.num} (${w.startDay}-${w.endDay})</strong>
+            <span style="color:#0f172a; font-weight:700;">Travail : ${formatMinutesToHours(w.mins)}</span><br>
+            ${w.travelMins > 0 ? `<span style="color:#0369a1; font-weight:700;">Trajet : ${formatMinutesToHours(w.travelMins)}</span><br>` : ''}
+            ${effectiveWeekOvertime > 0 
+              ? `<span class="pdf-overtime-tag">+${formatMinutesToHours(effectiveWeekOvertime)} H.Supp</span>` 
+              : `<span style="color:#64748b;">Base 35h OK</span>`}
+          </div>
+        `;
+      }).join('');
+
+      const tbody = document.getElementById('pdfTableBody');
+      tbody.innerHTML = '';
+
+      let weekIndex = 1;
+      let currentWeekMins = 0;
+      let currentWeekTravelMins = 0;
+      let currentWeekOvertimeMins = 0;
+      let weekRowsHtml = '';
+
+      for (let day = 1; day <= daysCount; day++) {
+        const dateObj = new Date(year, month, day);
+        const dayOfWeek = dateObj.getDay();
+        const isSunday = dayOfWeek === 0;
+        const dateKey = formatDateKey(year, month, day);
+        const holidayName = holidays[dateKey];
+        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travels: [] };
+
+        const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+        let shift1Text = '-';
+        let shift2Text = '-';
+        let totalText = '-';
+        let travelText = '-';
+        let overtimeText = '-';
+        let remarkText = log.comment || (holidayName ? holidayName : '');
+        let rowBg = isSunday ? '#fffbeb' : (day % 2 === 0 ? '#f8fafc' : '#ffffff');
+
+        let dayTotalMins = 0;
+        let dayTravelMins = 0;
+        let dayOvertimeMins = 0;
+
+        if (log.status === 'CP') {
+          shift1Text = 'CONGÉ PAYÉ';
+          totalText = '7h00';
+          dayTotalMins = DAILY_TARGET_MINS;
+          currentWeekMins += dayTotalMins;
+          rowBg = '#ecfdf5';
+        } else if (log.status === 'AM') {
+          shift1Text = 'ARRÊT MALADIE';
+          totalText = '0h00';
+          rowBg = '#fff1f2';
+        } else if (log.status === 'OFF') {
+          shift1Text = 'REPOS';
+          totalText = '-';
+        } else {
+          const s1 = calculateShift(log.start1, log.end1);
+          const s2 = calculateShift(log.start2, log.end2);
+          dayTotalMins = s1.totalMins + s2.totalMins;
+          dayTravelMins = getDayTotalTravelMins(log);
+
+          currentWeekMins += dayTotalMins;
+          currentWeekTravelMins += dayTravelMins;
+
+          if (log.start1 && log.end1) shift1Text = `${log.start1} - ${log.end1}`;
+          if (log.start2 && log.end2) shift2Text = `${log.start2} - ${log.end2}`;
+          if (dayTotalMins > 0) totalText = formatMinutesToHours(dayTotalMins);
+          if (dayTravelMins > 0) travelText = `<span class="pdf-travel-tag">🚗 ${formatMinutesToHours(dayTravelMins)}</span>`;
+
+          if (log.isForcedOvertime && dayTotalMins > 0) {
+            dayOvertimeMins = dayTotalMins;
+            overtimeText = `<span class="pdf-overtime-tag">+${formatMinutesToHours(dayOvertimeMins)} (100%)</span>`;
+          } else if (dayTotalMins > DAILY_TARGET_MINS) {
+            dayOvertimeMins = dayTotalMins - DAILY_TARGET_MINS;
+            overtimeText = `<span class="pdf-overtime-tag">+${formatMinutesToHours(dayOvertimeMins)}</span>`;
+          }
+          currentWeekOvertimeMins += dayOvertimeMins;
+        }
+
+        weekRowsHtml += `
+          <tr style="background:${rowBg};">
+            <td style="padding:2px 5px; border:1px solid #cbd5e1; font-weight:600; text-transform:capitalize;">${dayName}</td>
+            <td style="padding:2px 5px; border:1px solid #cbd5e1; text-align:center;">${shift1Text}</td>
+            <td style="padding:2px 5px; border:1px solid #cbd5e1; text-align:center;">${shift2Text}</td>
+            <td style="padding:2px 5px; border:1px solid #cbd5e1; text-align:center; font-weight:700;">${totalText}</td>
+            <td class="pdf-col-travel" style="padding:2px 5px; border:1px solid #cbd5e1; text-align:center;">${travelText}</td>
+            <td style="padding:2px 5px; border:1px solid #cbd5e1; text-align:center;">${overtimeText}</td>
+            <td class="pdf-col-comment" style="padding:2px 5px; border:1px solid #cbd5e1; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:130px;">${remarkText}</td>
+          </tr>
+        `;
+
+        // Fin de semaine (Dimanche ou dernier jour du mois) : insertion du bandeau de synthèse hebdomadaire + ses jours
+        if (dayOfWeek === 0 || day === daysCount) {
+          const weeklyOver35 = Math.max(0, currentWeekMins - (35 * 60));
+          const totalWeekOvertime = Math.max(weeklyOver35, currentWeekOvertimeMins);
+
+          const weekHeaderRow = `
+            <tr style="background:#e0f2fe; color:#0c4a6e; font-weight:800; font-size:8.5px;">
+              <td colspan="3" style="padding:3px 6px; border:1px solid #0284c7;">
+                📅 SEMAINE ${weekIndex}
+              </td>
+              <td style="padding:3px 5px; border:1px solid #0284c7; text-align:center;">
+                ${formatMinutesToHours(currentWeekMins)}
+              </td>
+              <td class="pdf-col-travel" style="padding:3px 5px; border:1px solid #0284c7; text-align:center; color:#0369a1;">
+                ${currentWeekTravelMins > 0 ? formatMinutesToHours(currentWeekTravelMins) : '-'}
+              </td>
+              <td style="padding:3px 5px; border:1px solid #0284c7; text-align:center;">
+                ${totalWeekOvertime > 0 ? `<span class="pdf-overtime-tag">+${formatMinutesToHours(totalWeekOvertime)}</span>` : '0h00'}
+              </td>
+              <td class="pdf-col-comment" style="padding:3px 5px; border:1px solid #0284c7; font-weight:600;">
+                Bilan Semaine ${weekIndex}
+              </td>
+            </tr>
+          `;
+
+          tbody.innerHTML += weekHeaderRow + weekRowsHtml;
+
+          weekIndex++;
+          currentWeekMins = 0;
+          currentWeekTravelMins = 0;
+          currentWeekOvertimeMins = 0;
+          weekRowsHtml = '';
+        }
+      }
     }
 
     function togglePdfOptionsModal() {
-      document.getElementById('pdfOptionsModal').classList.toggle('hidden');
+      const modal = document.getElementById('pdfOptionsModal');
+      modal.classList.toggle('hidden');
     }
 
-    function exportDataJSON() {
-      const jsonStr = JSON.stringify(logs, null, 2);
-      try {
-        const blob = new Blob([jsonStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.href = url;
-        downloadAnchor.download = `Sauvegarde_Heures_GSF_${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      } catch (e) {
-        document.getElementById('jsonFallbackArea').classList.remove('hidden');
-        document.getElementById('jsonRawText').value = jsonStr;
-      }
-    }
-
-    function importDataJSON(event) {
-      const fileReader = new FileReader();
-      fileReader.onload = function(e) {
-        try {
-          const importedLogs = JSON.parse(e.target.result);
-          logs = { ...logs, ...importedLogs };
-          saveLogs();
-          render();
-          alert("Sauvegarde restaurée avec succès !");
-        } catch (err) {
-          alert("Fichier de sauvegarde invalide.");
-        }
-      };
-      fileReader.readAsText(event.target.files[0]);
-    }
-
-    /**
-     * Export PDF Haute Qualité 1 Seule Page avec options de filtres
-     */
     function generateFilteredPDF() {
-      togglePdfOptionsModal();
-
+      // Appliquer les filtres sélectionnés par l'utilisateur
       const showSalary = document.getElementById('pdfOptSalary').checked;
       const showWeekly = document.getElementById('pdfOptWeekly').checked;
       const showComments = document.getElementById('pdfOptComments').checked;
       const showTravel = document.getElementById('pdfOptTravel').checked;
 
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
-      const daysCount = getDaysInMonth(year, month);
-      const holidays = getFrenchHolidays(year);
-      const monthText = document.getElementById('currentMonthLabel').innerText;
-
-      document.getElementById('pdfMonthHeader').innerText = monthText;
-      document.getElementById('pdfPrintDate').innerText = new Date().toLocaleDateString('fr-FR');
-
-      // Masquer / Afficher les sections du PDF selon les choix
       document.getElementById('pdfSalarySection').style.display = showSalary ? 'grid' : 'none';
       document.getElementById('pdfWeeklySection').style.display = showWeekly ? 'block' : 'none';
 
-      // Remplir le détail Hebdomadaire PDF et regrouper les lignes par semaine
-      const pdfWeeklyList = document.getElementById('pdfWeeklyList');
-      pdfWeeklyList.innerHTML = '';
+      document.querySelectorAll('.pdf-col-comment').forEach(el => {
+        el.style.display = showComments ? 'table-cell' : 'none';
+      });
+      document.querySelectorAll('.pdf-col-travel').forEach(el => {
+        el.style.display = showTravel ? 'table-cell' : 'none';
+      });
 
-      const pdfTableBody = document.getElementById('pdfTableBody');
-      pdfTableBody.innerHTML = '';
+      togglePdfOptionsModal();
+      exportPDF();
+    }
 
-      let currentWeekMins = 0;
-      let currentWeekTravelMins = 0;
-      let currentWeekForcedMins = 0;
-      let weekNum = 1;
-      let currentWeekRowsHtml = '';
+    /**
+     * Génère un PDF A4 compact sur 1 SEULE PAGE
+     */
+    function exportPDF() {
+      const monthText = document.getElementById('currentMonthLabel').innerText;
+      const filename = `Releve_GSF_${monthText.replace(/\s+/g, '_')}.pdf`;
 
-      for (let day = 1; day <= daysCount; day++) {
-        const dateObj = new Date(year, month, day);
-        const dayOfWeek = dateObj.getDay();
-        const isSunday = (dayOfWeek === 0);
-        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-        const dateKey = formatDateKey(year, month, day);
-        const holidayName = holidays[dateKey];
-        const log = logs[dateKey] || { status: 'WORK', start1: '', end1: '', start2: '', end2: '', comment: '', isForcedOvertime: false, travelType: 'NONE', travelMins: 0 };
-
-        const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
-
-        let shift1Text = '-';
-        let shift2Text = '-';
-        let dayTotalMins = 0;
-        let dayTravelMins = 0;
-
-        if (log.status === 'CP') {
-          shift1Text = 'CONGÉ PAYÉ';
-          dayTotalMins = DAILY_TARGET_MINS;
-          currentWeekMins += DAILY_TARGET_MINS;
-        } else if (log.status === 'AM') {
-          shift1Text = 'ARRÊT MALADIE';
-        } else if (log.status === 'OFF') {
-          shift1Text = 'REPOS';
-        } else if (log.status === 'WORK') {
-          if (log.start1 && log.end1) shift1Text = `${log.start1} - ${log.end1}`;
-          if (log.start2 && log.end2) shift2Text = `${log.start2} - ${log.end2}`;
-
-          const s1 = calculateShift(log.start1, log.end1);
-          const s2 = calculateShift(log.start2, log.end2);
-          dayTotalMins = s1.totalMins + s2.totalMins;
-          dayTravelMins = parseInt(log.travelMins, 10) || 0;
-
-          currentWeekMins += dayTotalMins;
-          currentWeekTravelMins += dayTravelMins;
-          if (log.isForcedOvertime) currentWeekForcedMins += dayTotalMins;
-        }
-
-        let bgStyle = isWeekend || holidayName ? 'background-color: #f8fafc;' : '';
-        let labelExtra = holidayName ? ` (${holidayName})` : '';
-
-        let overtimeCell = '-';
-        if (log.status === 'WORK' && dayTotalMins > 0 && log.isForcedOvertime) {
-          overtimeCell = `<span class="pdf-overtime-tag">⚡ ${formatMinutesToHours(dayTotalMins)}</span>`;
-        }
-
-        let travelCell = '-';
-        if (showTravel && dayTravelMins > 0) {
-          travelCell = `<span class="pdf-travel-tag">${formatMinutesToHours(dayTravelMins)}</span>`;
-        }
-
-        currentWeekRowsHtml += `
-          <tr style="${bgStyle} border-bottom: 1px solid #e2e8f0;">
-            <td style="padding:2.5px 5px; font-weight:bold;">${dayName}${labelExtra}</td>
-            <td style="padding:2.5px 5px; text-align:center;">${shift1Text}</td>
-            <td style="padding:2.5px 5px; text-align:center;">${shift2Text}</td>
-            <td style="padding:2.5px 5px; text-align:center; font-weight:bold;">${dayTotalMins > 0 ? formatMinutesToHours(dayTotalMins) : '-'}</td>
-            <td style="padding:2.5px 5px; text-align:center;">${travelCell}</td>
-            <td style="padding:2.5px 5px; text-align:center;">${overtimeCell}</td>
-            <td style="padding:2.5px 5px; color:#475569;">${showComments ? (log.comment || '') : ''}</td>
-          </tr>
-        `;
-
-        if (isSunday || day === daysCount) {
-          const regularMins = currentWeekMins - currentWeekForcedMins;
-          const excessMins = Math.max(0, regularMins - (35 * 60));
-          const totalWeekOvertime = currentWeekForcedMins + excessMins;
-
-          let otLabel = totalWeekOvertime > 0 ? `<br><span style="color:#6b21a8; font-weight:bold;">⚡ +${formatMinutesToHours(totalWeekOvertime)} H.Supp</span>` : '';
-
-          pdfWeeklyList.innerHTML += `
-            <div style="background:white; padding:4px 6px; border-radius:6px; border:1px solid #e9d5ff; text-align:center;">
-              <strong>Sem. ${weekNum}</strong>: ${formatMinutesToHours(currentWeekMins)}
-              ${otLabel}
-            </div>
-          `;
-
-          // En-tête de semaine dans le tableau PDF + lignes des jours de la semaine
-          const travelWeekSummary = (showTravel && currentWeekTravelMins > 0)
-            ? ` • <span style="color:#0369a1;">Trajet : ${formatMinutesToHours(currentWeekTravelMins)}</span>`
-            : '';
-          const otWeekSummary = totalWeekOvertime > 0
-            ? ` • <span style="color:#15803d;">H.Supp : +${formatMinutesToHours(totalWeekOvertime)}</span>`
-            : '';
-
-          pdfTableBody.innerHTML += `
-            <tr style="background-color:#e2e8f0; color:#0f172a; font-weight:800; font-size:8.5px;">
-              <td colspan="7" style="padding:3px 6px; border-top:1px solid #94a3b8; border-bottom:1px solid #94a3b8;">
-                📅 SEMAINE ${weekNum} — Travail : ${formatMinutesToHours(currentWeekMins)}${otWeekSummary}${travelWeekSummary}
-              </td>
-            </tr>
-            ${currentWeekRowsHtml}
-          `;
-
-          weekNum++;
-          currentWeekMins = 0;
-          currentWeekTravelMins = 0;
-          currentWeekForcedMins = 0;
-          currentWeekRowsHtml = '';
-        }
-      }
-
-      // Basculer en mode PDF pour le rendu
       document.body.classList.add('pdf-mode');
+      document.getElementById('appContainer').style.display = 'none';
+
       const element = document.getElementById('pdfRenderArea');
 
       const opt = {
-        margin:       [4, 4, 4, 4],
-        filename:     `Fiche_Heures_GSF_${monthText.replace(' ', '_')}.pdf`,
+        margin:       [3, 3, 3, 3],
+        filename:     filename,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true },
+        html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      html2pdf().set(opt).from(element).save().then(() => {
+      html2pdf().set(opt).from(element).outputPdf('blob').then((pdfBlob) => {
         document.body.classList.remove('pdf-mode');
-      }).catch(() => {
+        document.getElementById('appContainer').style.display = 'block';
+
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      }).catch(err => {
+        console.error(err);
         document.body.classList.remove('pdf-mode');
+        document.getElementById('appContainer').style.display = 'block';
+        alert("Erreur lors de la création du PDF.");
       });
     }
 
-    // Premier rendu
+    function toggleSettingsModal() {
+      const modal = document.getElementById('settingsModal');
+      modal.classList.toggle('hidden');
+      document.getElementById('jsonFallbackArea').classList.add('hidden');
+    }
+
+    /**
+     * Export JSON compatible iOS Safari
+     */
+    function exportDataJSON() {
+      const jsonString = JSON.stringify(logs, null, 2);
+      const filename = `Sauvegarde_Heures_GSF_${new Date().toISOString().slice(0, 10)}.json`;
+
+      try {
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      } catch (e) {
+        console.warn("Fallback texte activé", e);
+      }
+
+      const fallbackArea = document.getElementById('jsonFallbackArea');
+      const rawText = document.getElementById('jsonRawText');
+      rawText.value = jsonString;
+      fallbackArea.classList.remove('hidden');
+    }
+
+    function importDataJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          logs = { ...logs, ...imported };
+          saveLogs();
+          render();
+          alert('✅ Sauvegarde restaurée avec succès !');
+          toggleSettingsModal();
+        } catch (err) {
+          alert('❌ Fichier de sauvegarde invalide.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
     render();
   </script>
 </body>
