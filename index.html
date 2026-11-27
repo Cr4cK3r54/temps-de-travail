@@ -37,12 +37,12 @@
     }
     .pdf-mode #pdfRenderArea {
       display: block !important;
-      width: 794px; /* A4 width @ 96 DPI */
+      width: 750px; /* A4 width with safe right margin @ 96 DPI */
       background: white;
       color: #1e293b;
-      padding: 18px 24px;
-      font-size: 10.5px;
-      line-height: 1.3;
+      padding: 14px 16px;
+      font-size: 10px;
+      line-height: 1.25;
       box-sizing: border-box;
     }
 
@@ -218,9 +218,9 @@
         <h1 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">RELEVÉ HEBDOMADAIRE & MENSUEL D'HEURES</h1>
         <p style="font-size:10px; color:#475569; margin:2px 0 0 0;"><strong>Société :</strong> GSF ARIANE • <strong>Qualification :</strong> ATQS 3A (14,95 €/h)</p>
       </div>
-      <div style="text-align:right; max-width: 250px; padding-right: 2px;">
-        <span id="pdfMonthHeader" style="font-size:13px; font-weight:800; color:#0284c7; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>
-        <p style="font-size:9.5px; color:#64748b; margin:2px 0 0 0; white-space:nowrap;">Base contrat : 151,67 h / mois</p>
+      <div style="text-align:right; flex-shrink: 0; padding-left: 8px;">
+        <span id="pdfMonthHeader" style="font-size:13px; font-weight:800; color:#0284c7; display:block;"></span>
+        <p style="font-size:9.5px; color:#64748b; margin:2px 0 0 0;">Base contrat : 151,67 h / mois</p>
       </div>
     </div>
 
@@ -413,7 +413,10 @@
       { id: 'PINK_INRS', label: '[ROSE] INRS (Myriam)', color: 'PINK', short: 'INRS' },
       { id: 'PINK_LECLERC_RAON', label: '[ROSE] Leclerc Raon l’Étape (Myriam)', color: 'PINK', short: 'Leclerc Raon' },
       { id: 'PINK_GNT', label: '[ROSE] GNT (Myriam)', color: 'PINK', short: 'GNT' },
-      { id: 'BLACK_OI', label: '[NOIR] OI (Audrey)', color: 'BLACK', short: 'OI' }
+      { id: 'PINK_CLAIREFONTAINE', label: '[ROSE] Clairefontaine (Myriam)', color: 'PINK', short: 'Clairefontaine' },
+      { id: 'PINK_LIBRE', label: '[ROSE] Autre site / Libre (Myriam)', color: 'PINK', short: 'Rose (Libre)' },
+      { id: 'BLACK_OI', label: '[NOIR] OI (Audrey)', color: 'BLACK', short: 'OI' },
+      { id: 'BLACK_LIBRE', label: '[NOIR] Autre site / Libre (Audrey)', color: 'BLACK', short: 'Noir (Libre)' }
     ];
 
     function getSiteMeta(siteId) {
@@ -436,9 +439,14 @@
       { id: 'r_oi_gironcourt', name: 'OI (Gironcourt) (1h00)', mins: 60 },
       { id: 'r_gnt_vittel', name: 'GNT (Vittel) (1h05)', mins: 65 },
       { id: 'r_leclerc_neufchateau', name: 'Leclerc (Neufchâteau) (0h55)', mins: 55 },
-      { id: 'r_leclerc_raon', name: "Leclerc (Raon L'Étape) (0h55)", mins: 55 }
+      { id: 'r_leclerc_raon', name: "Leclerc (Raon L'Étape) (0h55)", mins: 55 },
+      { id: 'r_clairefontaine', name: 'Clairefontaine (0h50)', mins: 50 }
     ];
     let savedRoutes = JSON.parse(localStorage.getItem('gsf_saved_routes_v2') || JSON.stringify(DEFAULT_ROUTES));
+    if (!savedRoutes.some(r => r.id === 'r_clairefontaine')) {
+      savedRoutes.push({ id: 'r_clairefontaine', name: 'Clairefontaine (0h50)', mins: 50 });
+      localStorage.setItem('gsf_saved_routes_v2', JSON.stringify(savedRoutes));
+    }
 
     document.getElementById('cpBaseInput').value = cpBaseAcquired;
 
@@ -1224,7 +1232,7 @@
             <td style="padding:1.8px 5px; border:1px solid #e2e8f0; text-align:center; font-weight:700;">${totalText}</td>
             <td style="padding:1.8px 5px; border:1px solid #e2e8f0; text-align:center;" class="pdf-travel-col">${travelText}</td>
             <td style="padding:1.8px 5px; border:1px solid #e2e8f0; text-align:center;">${overtimeText}</td>
-            <td style="padding:1.8px 5px; border:1px solid #e2e8f0; color:#475569; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" class="pdf-comment-col">${remarkText}</td>
+            <td style="padding:1.8px 5px; border:1px solid #e2e8f0; color:#475569; word-break:break-word; font-size:7.5px;" class="pdf-comment-col">${remarkText}</td>
           </tr>
         `;
 
@@ -1300,10 +1308,10 @@
 
       const element = document.getElementById('pdfRenderArea');
       const opt = {
-        margin:       [3, 3, 3, 3],
+        margin:       [4, 4, 4, 4],
         filename:     filename,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, windowWidth: 794 },
+        html2canvas:  { scale: 2, useCORS: true, width: 750, windowWidth: 750, scrollX: 0, scrollY: 0 },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
